@@ -1,0 +1,13 @@
+# Render "Blueprint" - automatinis svetainės nustatymas.
+# Svarbu: pavadinimas (name) tampa Jūsų adresu: https://<pavadinimas>.onrender.com
+# Galite jį keisti (pvz. mano-svetaine), tik mažomis raidėmis ir be tarpų.
+services:
+  - type: web
+    name: ai-svetaine-omg
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 2 --bind 0.0.0.0:$PORT --timeout 60
+    envVars:
+      - key: DEBUG
+        value: "false"

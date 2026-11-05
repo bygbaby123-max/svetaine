@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Pradžia · Mano svetainė{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>Sveikas atvykęs!</h1>
+  {% if user %}
+    <p class="lead">Tu prisijungęs kaip <b>{{ user['username'] }}</b>
+      ({% if user['is_admin'] %}administratorius{% else %}vartotojas{% endif %}).</p>
+    <div class="cards">
+      <div class="card">
+        <h3>Tavo duomenys</h3>
+        <p>El. paštas: <b>{{ user['email'] }}</b></p>
+        <p>Gimimo metai: <b>{{ user['birth_year'] or 'praleista' }}</b></p>
+        <a class="btn" href="{{ url_for('my_panel', token=user['panel_token']) }}">Atidaryti savo panelę</a>
+      </div>
+      <div class="card">
+        <h3>Paskutinis prisijungimas</h3>
+        <p><b>{{ user['last_login_at'] or '—' }}</b></p>
+        <p>IP: <b>{{ user['last_login_ip'] or '—' }}</b></p>
+        <p>Prisijungimų: <b>{{ user['login_count'] }}</b></p>
+        {% if user['is_admin'] %}
+          <a class="btn btn-admin" href="{{ url_for('admin') }}">Admin panel</a>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <p class="lead">Registruokis įrašydamas vartotojo vardą ir el. paštą, o po registracijos
+      gausi laišką į savo Gmail su visais įvestais duomenimis ir mygtuku į savo panelę.</p>
+    <div class="hero-actions">
+      <a class="btn btn-lg" href="{{ url_for('register') }}">Registruotis</a>
+      <a class="btn btn-ghost btn-lg" href="{{ url_for('login') }}">Jau turi paskyrą?</a>
+    </div>
+  {% endif %}
+</section>
+
+<section class="features">
+  <div class="card"><h3>1 žingsnis</h3><p>Įrašyk vartotojo vardą, el. paštą ir slaptažodį. Gimimo metai įvedami, bet juos galima praleisti.</p></div>
+  <div class="card"><h3>2 žingsnis</h3><p>Sistema automatiškai išsiunčia laišką į tavo Gmail su visais įvestais duomenimis.</p></div>
+  <div class="card"><h3>3 žingsnis</h3><p>Laiške mygtukas atidaro asmeninę panelę, o administratorius mato visus registruotus vartotojus.</p></div>
+</section>
+{% endblock %}

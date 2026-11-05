@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Registracija · Mano svetainė{% endblock %}
+
+{% block content %}
+<div class="auth-box">
+  <h1>Registracija</h1>
+  <form method="post" class="form">
+    <label>Vartotojo vardas
+      <input type="text" name="username" value="{{ form.get('username','') }}" required minlength="3" maxlength="20">
+    </label>
+    <label>El. paštas (Gmail)
+      <input type="email" name="email" value="{{ form.get('email','') }}" required placeholder="vardas@gmail.com">
+    </label>
+    <label>Slaptažodis
+      <input type="password" name="password" required minlength="6" placeholder=" bent 6 simboliai">
+    </label>
+    <label>Gimimo metai
+      <input type="text" name="birth_year" inputmode="numeric" maxlength="4"
+             value="{{ form.get('birth_year','') }}" placeholder="pvz. 1999">
+    </label>
+    <div class="form-actions">
+      <button class="btn" type="submit">Registruotis</button>
+      <button class="btn btn-ghost" type="submit" name="skip_birth" value="1">Praleisti gimimo metus</button>
+    </div>
+  </form>
+
+  {% if google_client_id %}
+  <div class="divider"><span>arba</span></div>
+  <div id="g_id_onload"
+       data-client_id="{{ google_client_id }}"
+       data-callback="onGoogleSignIn"
+       data-auto_prompt="false"></div>
+  <div class="g_id_signin" data-type="standard"></div>
+  {% endif %}
+
+  <p class="muted">Jau turi paskyrą? <a href="{{ url_for('login') }}">Prisijunk</a></p>
+</div>
+
+{% if google_client_id %}
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+function onGoogleSignIn(response) {
+  fetch('{{ url_for("auth_google") }}', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({credential: response.credential})
+  })
+  .then(r => r.json())
+  .then(d => { if (d.ok) location.href = d.redirect; else alert(d.error || 'Klaida'); })
+  .catch(() => alert('Klaida jungiantis su Google'));
+}
+</script>
+{% endif %}
+{% endblock %}
