@@ -6,7 +6,7 @@
   <h1>Sveikas atvykęs!</h1>
   {% if user %}
     <p class="lead">Tu prisijungęs kaip <b>{{ user['username'] }}</b>
-      ({% if user['is_admin'] %}administratorius{% else %}vartotojas{% endif %}).</p>
+      ({% if is_owner %}savininkas{% elif user['is_coowner'] %}co-owner{% else %}vartotojas{% endif %}).</p>
     <div class="cards">
       <div class="card">
         <h3>Tavo duomenys</h3>
@@ -19,7 +19,7 @@
         <p><b>{{ user['last_login_at'] or '—' }}</b></p>
         <p>IP: <b>{{ user['last_login_ip'] or '—' }}</b></p>
         <p>Prisijungimų: <b>{{ user['login_count'] }}</b></p>
-        {% if user['is_admin'] %}
+        {% if is_staff %}
           <a class="btn btn-admin" href="{{ url_for('admin') }}">Admin panel</a>
         {% endif %}
       </div>
@@ -36,7 +36,7 @@
 
 <section class="features">
   <div class="card"><h3>1 žingsnis</h3><p>Įrašyk vartotojo vardą, el. paštą ir slaptažodį. Gimimo metai įvedami, bet juos galima praleisti.</p></div>
-  <div class="card"><h3>2 žingsnis</h3><p>Sistema automatiškai išsiunčia laišką į tavo Gmail su visais įvestais duomenimis.</p></div>
-  <div class="card"><h3>3 žingsnis</h3><p>Laiške mygtukas atidaro asmeninę panelę, o administratorius mato visus registruotus vartotojus.</p></div>
+  <div class="card"><h3>2 žingsnis</h3><p>Sistema automatiškai išsiunčia laišką į tavo Gmail su visais įvestais duomenimis – <b>tik kartą, kai užsiregistruoji</b>.</p></div>
+  <div class="card"><h3>3 žingsnis</h3><p>Laiške mygtukas atidaro asmeninę panelę, o savininkas ir co-owner'iai mato visus registruotus vartotojus.</p></div>
 </section>
 {% endblock %}

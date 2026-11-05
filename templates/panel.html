@@ -39,7 +39,7 @@
   {% if is_owner %}
     <div class="form-actions">
       <a class="btn btn-ghost" href="{{ url_for('index') }}">Į pradžią</a>
-      {% if user and user['is_admin'] %}<a class="btn btn-admin" href="{{ url_for('admin') }}">Admin panel</a>{% endif %}
+      {% if is_staff %}<a class="btn btn-admin" href="{{ url_for('admin') }}">Admin panel</a>{% endif %}
     </div>
   {% endif %}
 </div>

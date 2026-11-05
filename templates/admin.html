@@ -3,12 +3,17 @@
 
 {% block content %}
 <div class="admin-head">
-  <h1>Admin panel</h1>
+  <h1>{% if is_owner %}Admin panel{% else %}Vartotojų lentelė{% endif %}</h1>
   <div class="stats">
     <span class="stat">Vartotojų: <b>{{ total_users }}</b></span>
     <span class="stat">Prisijungimų: <b>{{ total_logins }}</b></span>
   </div>
 </div>
+
+{% if not is_owner %}
+<div class="flash flash-info">Tu peržiūri kaip <b>co-owner</b> – gali matyti vartotojų lentelę ir istoriją,
+bet negali trinti vartotojų ar tvarkyti co-owner'ių.</div>
+{% endif %}
 
 <form method="get" class="search">
   <input type="text" name="q" value="{{ q }}" placeholder="Ieškoti pagal vartotojo vardą ar el. paštą...">
@@ -33,16 +38,31 @@
       <td><b>{{ u['username'] }}</b></td>
       <td>{{ u['email'] }}</td>
       <td>{{ u['birth_year'] or '—' }}</td>
-      <td>{% if u['is_admin'] %}<span class="badge badge-admin">admin</span>{% else %}<span class="badge">vartotojas</span>{% endif %}</td>
+      <td>
+        {% if u['is_admin'] %}<span class="badge badge-admin">savininkas</span>
+        {% elif u['is_coowner'] %}<span class="badge badge-coowner">co-owner</span>
+        {% else %}<span class="badge">vartotojas</span>{% endif %}
+      </td>
       <td>{{ u['created_at'] }}</td>
       <td>{{ u['last_login_at'] or '—' }}</td>
       <td>{{ u['last_login_ip'] or '—' }}</td>
       <td>{{ u['login_count'] }}</td>
-      <td>
+      <td class="actions">
         {% if u['panel_token'] %}
           <a class="mini" href="{{ url_for('my_panel', token=u['panel_token']) }}">Panelė</a>
         {% endif %}
-        {% if u['id'] != user['id'] %}
+        {% if is_owner and u['id'] != user['id'] and not u['is_admin'] %}
+          {% if u['is_coowner'] %}
+          <form method="post" action="{{ url_for('coowner_remove', user_id=u['id']) }}">
+            <button class="mini mini-coowner" type="submit">Nuimti co-owner</button>
+          </form>
+          {% else %}
+          <form method="post" action="{{ url_for('coowner_add', user_id=u['id']) }}">
+            <button class="mini mini-coowner" type="submit">Pridėti co-owner</button>
+          </form>
+          {% endif %}
+        {% endif %}
+        {% if is_owner and u['id'] != user['id'] %}
         <form method="post" action="{{ url_for('admin_delete', user_id=u['id']) }}"
               onsubmit="return confirm('Ištrinti {{ u['username'] }}?')">
           <button class="mini mini-danger" type="submit">Trinti</button>

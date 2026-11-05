@@ -12,7 +12,7 @@
   <div class="links">
     {% if user %}
       <a href="{{ url_for('my_panel', token=user['panel_token']) }}">Mano panelė</a>
-      {% if user['is_admin'] %}
+      {% if is_staff %}
         <a href="{{ url_for('admin') }}" class="admin-link">Admin panel</a>
       {% endif %}
       <span class="who">{{ user['username'] }}</span>
