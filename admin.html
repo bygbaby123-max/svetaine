@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Admin panel · Mano svetainė{% endblock %}
+
+{% block content %}
+<div class="admin-head">
+  <h1>Admin panel</h1>
+  <div class="stats">
+    <span class="stat">Vartotojų: <b>{{ total_users }}</b></span>
+    <span class="stat">Prisijungimų: <b>{{ total_logins }}</b></span>
+  </div>
+</div>
+
+<form method="get" class="search">
+  <input type="text" name="q" value="{{ q }}" placeholder="Ieškoti pagal vartotojo vardą ar el. paštą...">
+  <button class="btn" type="submit">Ieškoti</button>
+  {% if q %}<a class="btn btn-ghost" href="{{ url_for('admin') }}">Valyti</a>{% endif %}
+</form>
+
+<h2>Registruoti vartotojai</h2>
+<div class="table-wrap">
+<table class="table">
+  <thead>
+    <tr>
+      <th>ID</th><th>Vartotojas</th><th>El. paštas</th><th>Gim. metai</th>
+      <th>Rolė</th><th>Registruotas</th><th>Pask. prisijungimas</th><th>IP</th>
+      <th>Prisijungimų</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for u in users %}
+    <tr>
+      <td>{{ u['id'] }}</td>
+      <td><b>{{ u['username'] }}</b></td>
+      <td>{{ u['email'] }}</td>
+      <td>{{ u['birth_year'] or '—' }}</td>
+      <td>{% if u['is_admin'] %}<span class="badge badge-admin">admin</span>{% else %}<span class="badge">vartotojas</span>{% endif %}</td>
+      <td>{{ u['created_at'] }}</td>
+      <td>{{ u['last_login_at'] or '—' }}</td>
+      <td>{{ u['last_login_ip'] or '—' }}</td>
+      <td>{{ u['login_count'] }}</td>
+      <td>
+        {% if u['panel_token'] %}
+          <a class="mini" href="{{ url_for('my_panel', token=u['panel_token']) }}">Panelė</a>
+        {% endif %}
+        {% if u['id'] != user['id'] %}
+        <form method="post" action="{{ url_for('admin_delete', user_id=u['id']) }}"
+              onsubmit="return confirm('Ištrinti {{ u['username'] }}?')">
+          <button class="mini mini-danger" type="submit">Trinti</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="10" class="muted">Vartotojų nėra.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2>Prisijungimų istorija</h2>
+<div class="table-wrap">
+<table class="table">
+  <thead><tr><th>Data ir laikas</th><th>Vartotojas</th><th>El. paštas</th><th>IP</th><th>Įrenginys</th></tr></thead>
+  <tbody>
+    {% for l in logs %}
+    <tr>
+      <td>{{ l['created_at'] }}</td>
+      <td><b>{{ l['username'] }}</b></td>
+      <td>{{ l['email'] }}</td>
+      <td>{{ l['ip'] }}</td>
+      <td class="truncate">{{ l['user_agent'] }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="muted">Prisijungimų dar nėra.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
