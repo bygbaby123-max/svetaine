@@ -105,6 +105,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT,
     birth_year INTEGER,
     is_admin INTEGER NOT NULL DEFAULT 0,
+    is_coowner INTEGER NOT NULL DEFAULT 0,
     panel_token TEXT UNIQUE,
     created_at TEXT NOT NULL,
     last_login_at TEXT,
@@ -130,6 +131,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT,
     birth_year INTEGER,
     is_admin INTEGER NOT NULL DEFAULT 0,
+    is_coowner INTEGER NOT NULL DEFAULT 0,
     panel_token TEXT UNIQUE,
     created_at TEXT NOT NULL,
     last_login_at TEXT,
@@ -149,6 +151,25 @@ CREATE TABLE IF NOT EXISTS logins (
 """
 
 
+def _add_missing_columns(conn):
+    """Prideda naujus stulpelius į jau esančias lenteles (SQLite ir PostgreSQL)."""
+    have = set()
+    if conn.pg:
+        rows = conn.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'users'"
+        ).fetchall()
+        for r in rows:
+            have.add(r["column_name"])
+    else:
+        for r in conn.execute("PRAGMA table_info(users)").fetchall():
+            have.add(r["name"])
+
+    for column, ddl in (("is_coowner", "is_coowner INTEGER NOT NULL DEFAULT 0"),):
+        if column not in have:
+            conn.execute(f"ALTER TABLE users ADD COLUMN {ddl}")
+    conn.commit()
+
+
 def init_db():
     conn = get_db()
     try:
@@ -157,6 +178,7 @@ def init_db():
             conn.execute(PG_LOGINS_DDL)
         else:
             conn.executescript(SQLITE_SCHEMA)
+        _add_missing_columns(conn)
         conn.commit()
     finally:
         conn.close()

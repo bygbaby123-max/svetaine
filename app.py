@@ -38,7 +38,6 @@ if os.getenv("RENDER", "").strip().lower() in ("true", "1", "yes"):
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
 SITE_URL = os.getenv("SITE_URL", "").strip().rstrip("/")
-EMAIL_ON_LOGIN = os.getenv("EMAIL_ON_LOGIN", "true").strip().lower() != "false"
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{3,20}$")
 
@@ -120,7 +119,8 @@ def login_required(f):
     return wrapper
 
 
-def admin_required(f):
+def owner_required(f):
+    """Tik savininkas (is_admin): trinti vartotojus ir tvarkyti co-owner'ius."""
     @wraps(f)
     def wrapper(*args, **kwargs):
         user = current_user()
@@ -128,15 +128,40 @@ def admin_required(f):
             flash("Pirmiausia prisijunkite.", "error")
             return redirect(url_for("login", next=request.path))
         if not user["is_admin"]:
+            flash("Ši veiksma skirta tik savininkui.", "error")
+            return redirect(url_for("admin"))
+        return f(*args, **kwargs)
+    return wrapper
+
+
+def staff_required(f):
+    """Savininkas ARBA co-owner: peržiūrėti vartotojų lentelę."""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        user = current_user()
+        if not user:
+            flash("Pirmiausia prisijunkite.", "error")
+            return redirect(url_for("login", next=request.path))
+        if not (user["is_admin"] or user["is_coowner"]):
             flash("Ši skiltis skirta tik administratoriui.", "error")
             return redirect(url_for("index"))
         return f(*args, **kwargs)
     return wrapper
 
 
+# Senasis pavadinimas (naudojamas kitose vietose) rodo į savininką
+admin_required = owner_required
+
+
 @app.context_processor
 def inject_globals():
-    return {"user": current_user(), "google_client_id": GOOGLE_CLIENT_ID}
+    u = current_user()
+    return {
+        "user": u,
+        "google_client_id": GOOGLE_CLIENT_ID,
+        "is_owner": bool(u and u["is_admin"]),
+        "is_staff": bool(u and (u["is_admin"] or u["is_coowner"])),
+    }
 
 
 # ---------------------------------------------------------------------- puslapiai
@@ -240,11 +265,6 @@ def login():
     session["user_id"] = user["id"]
     record_login(user)
 
-    if EMAIL_ON_LOGIN:
-        sent = send_data_email(user, "prisijungimo", "Prisijungimas prie paskyros")
-        if not sent:
-            warn_if_no_smtp()
-
     flash(f"Sveikas, {user['username']}! Prisijungta.", "success")
     if nxt.startswith("/") and not nxt.startswith("//"):
         return redirect(nxt)
@@ -298,8 +318,6 @@ def auth_google():
     user = fetch_user(uid)
     session["user_id"] = uid
     record_login(user)
-    if EMAIL_ON_LOGIN:
-        send_data_email(user, "prisijungimo", "Prisijungimas su Google")
     return jsonify(ok=True, redirect=url_for("index"))
 
 
@@ -330,7 +348,7 @@ def my_panel(token):
 
 # ---------------------------------------------------------------- administratoriaus panelė
 @app.route("/admin")
-@admin_required
+@staff_required
 def admin():
     q = request.args.get("q", "").strip()
     db = get_db()
@@ -359,7 +377,7 @@ def admin():
 
 
 @app.post("/admin/delete/<int:user_id>")
-@admin_required
+@owner_required
 def admin_delete(user_id):
     if user_id == session.get("user_id"):
         flash("Negalima ištrinti savo paskyros iš admin panelės.", "error")
@@ -371,6 +389,43 @@ def admin_delete(user_id):
     finally:
         db.close()
     flash("Vartotojas ištrintas.", "success")
+    return redirect(url_for("admin"))
+
+
+@app.post("/admin/coowner/<int:user_id>/add")
+@owner_required
+def coowner_add(user_id):
+    user = fetch_user(user_id)
+    if not user:
+        flash("Vartotojas nerastas.", "error")
+        return redirect(url_for("admin"))
+    if user["is_admin"]:
+        flash("Šis vartotojas jau yra savininkas.", "info")
+        return redirect(url_for("admin"))
+    db = get_db()
+    try:
+        db.execute("UPDATE users SET is_coowner = 1 WHERE id = ?", (user_id,))
+        db.commit()
+    finally:
+        db.close()
+    flash(f"Vartotojas {user['username']} dabar yra co-owner.", "success")
+    return redirect(url_for("admin"))
+
+
+@app.post("/admin/coowner/<int:user_id>/remove")
+@owner_required
+def coowner_remove(user_id):
+    user = fetch_user(user_id)
+    if not user:
+        flash("Vartotojas nerastas.", "error")
+        return redirect(url_for("admin"))
+    db = get_db()
+    try:
+        db.execute("UPDATE users SET is_coowner = 0 WHERE id = ?", (user_id,))
+        db.commit()
+    finally:
+        db.close()
+    flash(f"Vartotojui {user['username']} co-owner teisės atimtos.", "success")
     return redirect(url_for("admin"))
 
 
