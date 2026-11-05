@@ -24,31 +24,8 @@
     </div>
   </form>
 
-  {% if google_client_id %}
-  <div class="divider"><span>arba</span></div>
-  <div id="g_id_onload"
-       data-client_id="{{ google_client_id }}"
-       data-callback="onGoogleSignIn"
-       data-auto_prompt="false"></div>
-  <div class="g_id_signin" data-type="standard"></div>
-  {% endif %}
+  {% include "google_signin.html" %}
 
   <p class="muted">Jau turi paskyrą? <a href="{{ url_for('login') }}">Prisijunk</a></p>
 </div>
-
-{% if google_client_id %}
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-<script>
-function onGoogleSignIn(response) {
-  fetch('{{ url_for("auth_google") }}', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({credential: response.credential})
-  })
-  .then(r => r.json())
-  .then(d => { if (d.ok) location.href = d.redirect; else alert(d.error || 'Klaida'); })
-  .catch(() => alert('Klaida jungiantis su Google'));
-}
-</script>
-{% endif %}
 {% endblock %}
