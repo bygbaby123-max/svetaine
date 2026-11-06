@@ -48,9 +48,15 @@
     var fd = new FormData(form);
     fetch(window.GAME_SCORE_URL, { method: "POST", body: fd, credentials: "same-origin" })
       .then(function (r) { return r.text(); })
-      .then(function () {
-        setStatus("✅ Rezultatas įrašytas! Grįžtama į lentelę...");
-        setTimeout(function () { location.reload(); }, 1300);
+      .then(function (html) {
+        var msg = "✅ Rezultatas įrašytas!";
+        try {
+          var doc = new DOMParser().parseFromString(html, "text/html");
+          var f = doc.querySelector(".flash");
+          if (f && f.textContent) msg = "✅ " + f.textContent.trim();
+        } catch (e) {}
+        setStatus(msg);
+        setTimeout(function () { location.reload(); }, 1700);
       })
       .catch(function () { setStatus("❌ Nepavyko įrašyti rezultato."); });
   }
