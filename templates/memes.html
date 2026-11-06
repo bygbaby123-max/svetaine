@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Meme siena · Mano svetainė{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>Meme siena</h1>
+  <p class="lead">Įkelk meme, balsuok ir komentuok. Visiems bendruomenės nariams!</p>
+</section>
+
+{% if user %}
+<section class="card meme-upload">
+  <h3>Įkelti naują meme</h3>
+  <form method="post" action="{{ url_for('meme_create') }}" id="meme-form">
+    <label for="meme-title">Antraštė</label>
+    <input type="text" id="meme-title" name="title" maxlength="100" required placeholder="Pvz.: Kai pamatai šią savaitę">
+    <label for="meme-file">Nuotrauka (JPG, PNG...)</label>
+    <input type="file" id="meme-file" accept="image/*" required>
+    <input type="hidden" name="image" id="meme-image">
+    <p class="hint" id="meme-hint">Nuotrauka automatiškai sumažinama iki ~1000px pločio.</p>
+    <button class="btn" type="submit" id="meme-submit">Įkelti</button>
+  </form>
+</section>
+{% else %}
+<section class="card">
+  <p><a class="btn" href="{{ url_for('login') }}">Prisijungti</a> ir galėsi kelti memes, balsuoti bei komentuoti.</p>
+</section>
+{% endif %}
+
+<section class="meme-list">
+  {% for m in memes %}
+  <article class="card meme-card">
+    <div class="meme-head">
+      <b>{{ m['username'] }}</b>
+      <span class="meme-date">{{ m['created_at'] }}</span>
+      {% if user and (user['id'] == m['user_id'] or is_owner) %}
+      <form method="post" action="{{ url_for('meme_delete', meme_id=m['id']) }}" class="meme-del"
+            onsubmit="return confirm('Ar tikrai ištrinti šį meme?');">
+        <button class="mini" type="submit">Trinti</button>
+      </form>
+      {% endif %}
+    </div>
+    <h3 class="meme-title">{{ m['title'] }}</h3>
+    <img class="meme-img" src="{{ m['image'] }}" alt="{{ m['title'] }}" loading="lazy">
+    <div class="meme-actions">
+      {% if user %}
+      <form method="post" action="{{ url_for('meme_vote', meme_id=m['id']) }}">
+        <input type="hidden" name="vote" value="1">
+        <button class="vote {{ 'active' if my_votes.get(m['id']) == 1 }}" type="submit">▲ {{ 'Patiko' }}</button>
+      </form>
+      <span class="score {{ 'up' if m['score'] > 0 else ('down' if m['score'] < 0 else '') }}">{{ m['score'] }}</span>
+      <form method="post" action="{{ url_for('meme_vote', meme_id=m['id']) }}">
+        <input type="hidden" name="vote" value="-1">
+        <button class="vote {{ 'active' if my_votes.get(m['id']) == -1 }}" type="submit">▼ Nepatiko</button>
+      </form>
+      {% else %}
+      <span class="score {{ 'up' if m['score'] > 0 else ('down' if m['score'] < 0 else '') }}">{{ m['score'] }}</span>
+      {% endif %}
+      <span class="meme-comments-count">💬 {{ m['comment_count'] }}</span>
+    </div>
+
+    <div class="meme-comments">
+      {% for c in comments.get(m['id'], []) %}
+      <div class="meme-comment">
+        <b>{{ c['username'] }}</b>
+        <span class="meme-date">{{ c['created_at'] }}</span>
+        <p>{{ c['body'] }}</p>
+      </div>
+      {% endfor %}
+      {% if user %}
+      <form method="post" action="{{ url_for('meme_comment', meme_id=m['id']) }}" class="meme-comment-form">
+        <input type="text" name="body" maxlength="1000" placeholder="Rašyk komentarą..." required>
+        <button class="btn btn-sm" type="submit">Siųsti</button>
+      </form>
+      {% endif %}
+    </div>
+  </article>
+  {% else %}
+  <div class="card"><p>Dar nėra meme. Būk pirmas – įkelk savo! 😄</p></div>
+  {% endfor %}
+</section>
+
+{% if user %}
+<script>
+(function () {
+  var form = document.getElementById('meme-form');
+  if (!form) return;
+  var file = document.getElementById('meme-file');
+  var hidden = document.getElementById('meme-image');
+  var hint = document.getElementById('meme-hint');
+  var submit = document.getElementById('meme-submit');
+  var MAX_W = 1000;
+  var QUALITY = 0.75;
+
+  file.addEventListener('change', function () {
+    var f = file.files && file.files[0];
+    if (!f) return;
+    hint.textContent = 'Apdorojama nuotrauka...';
+    submit.disabled = true;
+    var img = new Image();
+    var url = URL.createObjectURL(f);
+    img.onload = function () {
+      var w = img.width, h = img.height;
+      if (w > MAX_W) { h = Math.round(h * MAX_W / w); w = MAX_W; }
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      var data = canvas.toDataURL('image/jpeg', QUALITY);
+      if (data.length > 1500000) {
+        hint.textContent = 'Nuotrauka per didelė net ir sumažinus – pasirink kitą.';
+        hidden.value = '';
+        submit.disabled = true;
+        file.value = '';
+        return;
+      }
+      hidden.value = data;
+      hint.textContent = 'Nuotrauka paruošta (' + Math.round(data.length / 1024) + ' KB).';
+      submit.disabled = false;
+    };
+    img.onerror = function () {
+      URL.revokeObjectURL(url);
+      hint.textContent = 'Nepavyko perskaityti nuotraukos – bandyk kitą.';
+      submit.disabled = true;
+    };
+    img.src = url;
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}
