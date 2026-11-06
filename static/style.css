@@ -614,3 +614,277 @@ td form { display: inline; margin-left: 6px; }
   .auth-box { padding: 26px 20px; }
   .form-actions .btn { min-width: 100%; }
 }
+
+/* ---------------------------------------------------------- žaidimai */
+.game-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 16px;
+  margin-bottom: 26px;
+}
+.game-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px;
+  text-decoration: none;
+  transition: .18s;
+}
+.game-card:hover { transform: translateY(-4px); border-color: var(--brand-2); text-decoration: none; }
+.game-card h3 { margin: 4px 0 0; color: var(--text); font-size: 18px; }
+.game-card p { margin: 0; }
+.game-icon { font-size: 34px; line-height: 1; }
+.game-best { margin-top: auto !important; color: var(--text) !important; font-size: 13px !important; }
+.game-card .btn { align-self: flex-start; margin-top: 10px; pointer-events: none; }
+.game-box { display: flex; flex-direction: column; gap: 14px; margin-bottom: 22px; }
+.game-rules { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+.game-toolbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.game-status { color: var(--brand-3); font-weight: 600; }
+#game-root { min-height: 60px; }
+.game-canvas {
+  display: block;
+  max-width: 100%;
+  background: #0d1220;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  touch-action: none;
+}
+.lb-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.lb-table th, .lb-table td {
+  padding: 9px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--text);
+}
+.lb-table th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+
+/* 2048 */
+.g2048 {
+  display: grid;
+  grid-template-columns: repeat(4, 74px);
+  gap: 8px;
+  width: max-content;
+}
+.g2048-cell {
+  width: 74px; height: 74px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 26px; font-weight: 800;
+  color: var(--text);
+}
+.g2048-cell.v0 { color: transparent; }
+.g2048-cell.v2 { background: #2b3160; }
+.g2048-cell.v4 { background: #343c74; }
+.g2048-cell.v8 { background: #4f46e5; }
+.g2048-cell.v16 { background: #6d28d9; }
+.g2048-cell.v32 { background: #7c3aed; color: #fff; }
+.g2048-cell.v64 { background: #9333ea; color: #fff; }
+.g2048-cell.v128 { background: #b45309; color: #fff; font-size: 22px; }
+.g2048-cell.v256 { background: #d97706; color: #fff; font-size: 22px; }
+.g2048-cell.v512 { background: #f59e0b; color: #111; font-size: 22px; }
+.g2048-cell.v1024 { background: #fbbf24; color: #111; font-size: 18px; }
+.g2048-cell.v2048 { background: #facc15; color: #111; font-size: 18px; }
+
+/* atmintis */
+.mem-grid { display: grid; grid-template-columns: repeat(4, 84px); gap: 10px; width: max-content; }
+.mem-card {
+  width: 84px; height: 84px;
+  font-size: 34px;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: .15s;
+}
+.mem-card:hover { border-color: var(--brand-2); transform: translateY(-2px); }
+.mem-card.flipped { background: #4f46e5; }
+
+/* kryžiukai–nuliai */
+.ttt-grid { display: grid; grid-template-columns: repeat(3, 90px); gap: 8px; width: max-content; }
+.ttt-cell {
+  width: 90px; height: 90px;
+  font-size: 42px; font-weight: 800;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  cursor: pointer;
+  transition: .12s;
+}
+.ttt-cell:hover:empty { border-color: var(--brand-2); }
+.ttt-cell.x { color: #4dabf7; }
+.ttt-cell.o { color: #ff6b6b; }
+
+/* minų laukas */
+.mine-grid { display: grid; grid-template-columns: repeat(9, 38px); gap: 4px; width: max-content; }
+.mine-cell {
+  width: 38px; height: 38px;
+  font-size: 16px; font-weight: 700;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+}
+.mine-cell:hover:empty { border-color: var(--brand-2); }
+.mine-cell.open { background: #12162b; cursor: default; }
+.mine-cell.flag { background: #3b2f63; }
+.mine-cell.boom { background: #b91c1c; }
+.mine-cell.n1 { color: #4dabf7; }
+.mine-cell.n2 { color: #3fb950; }
+.mine-cell.n3 { color: #ff6b6b; }
+.mine-cell.n4 { color: #ffd43b; }
+.mine-cell.n5, .mine-cell.n6, .mine-cell.n7, .mine-cell.n8 { color: #c084fc; }
+
+/* simon */
+.simon-grid { display: grid; grid-template-columns: repeat(2, 130px); gap: 12px; width: max-content; }
+.simon-pad {
+  width: 130px; height: 100px;
+  border: none; border-radius: 14px;
+  opacity: .45;
+  cursor: pointer;
+  transition: .12s;
+}
+.simon-pad.lit { opacity: 1; transform: scale(1.04); box-shadow: 0 0 24px rgba(255,255,255,.35); }
+
+/* reakcija */
+.reaction-box {
+  display: flex; align-items: center; justify-content: center;
+  height: 170px;
+  border-radius: 14px;
+  cursor: pointer;
+  font-size: 22px; font-weight: 800;
+  color: #fff;
+  text-align: center;
+  padding: 0 16px;
+  user-select: none;
+}
+.reaction-box.red { background: linear-gradient(135deg, #b91c1c, #7f1d1d); }
+.reaction-box.green { background: linear-gradient(135deg, #16a34a, #14532d); }
+
+/* kurmiai */
+.whack-grid { display: grid; grid-template-columns: repeat(3, 92px); gap: 10px; width: max-content; }
+.whack-cell {
+  width: 92px; height: 92px;
+  font-size: 40px;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: .1s;
+}
+.whack-cell:hover { border-color: var(--brand-2); transform: scale(1.04); }
+
+/* 15 dėlionė */
+.p15-grid { display: grid; grid-template-columns: repeat(4, 78px); gap: 7px; width: max-content; }
+.p15-cell {
+  width: 78px; height: 78px;
+  font-size: 24px; font-weight: 800;
+  background: linear-gradient(135deg, var(--card-2), #2b3160);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  cursor: pointer;
+  transition: .12s;
+}
+.p15-cell:hover { border-color: var(--brand-2); transform: translateY(-2px); }
+.p15-cell.empty { background: transparent; border-style: dashed; cursor: default; }
+.p15-cell.empty:hover { transform: none; }
+
+/* akmuo–žirklės–popierius */
+.rps-info { color: var(--muted); font-size: 15px; }
+.rps-result { color: var(--text); font-size: 17px; font-weight: 700; min-height: 24px; }
+.rps-bar { display: flex; gap: 12px; flex-wrap: wrap; }
+.rps-btn { font-size: 30px; padding: 10px 22px; }
+
+/* rašymas */
+.type-word {
+  font-size: 34px; font-weight: 800;
+  color: var(--brand-3);
+  letter-spacing: .05em;
+  margin: 6px 0;
+}
+.type-input, .guess-input {
+  width: 100%;
+  max-width: 340px;
+  padding: 12px 14px;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  font-size: 17px;
+  outline: none;
+}
+.type-input:focus, .guess-input:focus { border-color: var(--brand-2); }
+
+/* kauliukai */
+.dice-area { display: flex; flex-direction: column; gap: 12px; }
+.dice-pair { display: flex; gap: 10px; }
+.die {
+  width: 58px; height: 58px;
+  display: flex; align-items: center; justify-content: center;
+  background: #fff; color: #111;
+  border-radius: 12px;
+  font-size: 26px; font-weight: 800;
+  box-shadow: var(--shadow);
+}
+
+/* spėk skaičių */
+.guess-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.guess-log { display: flex; flex-direction: column; gap: 3px; max-height: 150px; overflow: auto; }
+
+/* viktorina */
+.quiz-q { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.quiz-answers { display: flex; flex-direction: column; gap: 9px; }
+.quiz-btn {
+  text-align: left;
+  padding: 12px 15px;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  font-size: 15px;
+  cursor: pointer;
+  transition: .12s;
+}
+.quiz-btn:hover { border-color: var(--brand-2); }
+.quiz-btn.right { background: #14532d; border-color: #22c55e; }
+.quiz-btn.wrong { background: #7f1d1d; border-color: #ef4444; }
+
+/* žodžių spėjimas */
+.wordle-grid { display: flex; flex-direction: column; gap: 6px; }
+.wordle-row { display: flex; gap: 6px; }
+.wordle-cell {
+  width: 46px; height: 46px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 22px; font-weight: 800;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.wordle-cell.hit { background: #16a34a; border-color: #22c55e; }
+.wordle-cell.near { background: #b45309; border-color: #f59e0b; }
+
+/* žaidimai jautriems ekranams */
+@media (max-width: 640px) {
+  .g2048 { grid-template-columns: repeat(4, 62px); }
+  .g2048-cell { width: 62px; height: 62px; font-size: 22px; }
+  .mem-grid { grid-template-columns: repeat(4, 66px); }
+  .mem-card { width: 66px; height: 66px; font-size: 26px; }
+  .mine-grid { grid-template-columns: repeat(9, 32px); }
+  .mine-cell { width: 32px; height: 32px; font-size: 14px; }
+  .p15-grid { grid-template-columns: repeat(4, 64px); }
+  .p15-cell { width: 64px; height: 64px; font-size: 20px; }
+  .whack-grid { grid-template-columns: repeat(3, 76px); }
+  .whack-cell { width: 76px; height: 76px; font-size: 32px; }
+  .ttt-grid { grid-template-columns: repeat(3, 74px); }
+  .ttt-cell { width: 74px; height: 74px; font-size: 34px; }
+  .simon-grid { grid-template-columns: repeat(2, 110px); }
+  .simon-pad { width: 110px; height: 84px; }
+  .wordle-cell { width: 40px; height: 40px; font-size: 18px; }
+}
