@@ -412,6 +412,78 @@ td form { display: inline; margin-left: 6px; }
 }
 .google-fallback .g_id_signin { display: flex; justify-content: center; }
 
+/* --------------------------------------------------------- meme siena */
+.meme-upload { margin-bottom: 26px; }
+.meme-upload label { display: block; margin: 12px 0 6px; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.meme-upload input[type="text"], .meme-upload input[type="file"] {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-soft);
+  color: var(--text);
+  font-size: 15px;
+}
+.meme-upload input[type="file"] { padding: 9px 12px; }
+.meme-upload input:focus { outline: none; border-color: var(--brand-2); }
+.hint { font-size: 13px; color: var(--muted); margin: 8px 0 12px; }
+
+.meme-list { display: flex; flex-direction: column; gap: 22px; }
+.meme-card { padding: 18px; }
+.meme-card:hover { transform: none; }
+.meme-head { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.meme-head b { color: var(--cyan); }
+.meme-date { color: var(--muted); font-size: 12px; }
+.meme-del { margin-left: auto; }
+.meme-del .mini { color: var(--red); border-color: rgba(248, 113, 113, .35); }
+.meme-del .mini:hover { background: rgba(248, 113, 113, .16); }
+.meme-title { margin: 10px 0 12px; font-size: 19px; color: #fff; }
+.meme-img {
+  display: block;
+  width: 100%;
+  max-height: 560px;
+  object-fit: contain;
+  border-radius: 14px;
+  background: #000;
+  border: 1px solid var(--border);
+}
+.meme-actions { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.meme-actions form { display: inline; margin: 0; }
+.vote {
+  background: var(--card-2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 7px 13px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: .15s;
+}
+.vote:hover { border-color: var(--brand-2); color: var(--text); }
+.vote.active { background: rgba(124, 58, 237, .25); color: #fff; border-color: var(--brand-2); }
+.score { font-size: 16px; font-weight: 800; min-width: 30px; text-align: center; color: var(--muted); }
+.score.up { color: var(--green); }
+.score.down { color: var(--red); }
+.meme-comments-count { margin-left: auto; color: var(--muted); font-size: 14px; }
+
+.meme-comments { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.meme-comment { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 12px; padding: 9px 13px; }
+.meme-comment b { color: var(--cyan); font-size: 14px; }
+.meme-comment p { margin: 4px 0 0; font-size: 14px; color: var(--text); word-break: break-word; }
+.meme-comment-form { display: flex; gap: 8px; }
+.meme-comment-form input {
+  flex: 1;
+  padding: 9px 13px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  color: var(--text);
+  font-size: 14px;
+}
+.meme-comment-form input:focus { outline: none; border-color: var(--brand-2); }
+.btn-sm { padding: 8px 16px; font-size: 14px; }
+
 /* -------------------------------------------------------- atsakymas */
 @media (max-width: 640px) {
   .hero { padding: 36px 18px; border-radius: 20px; }
