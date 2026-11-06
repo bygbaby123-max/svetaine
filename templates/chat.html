@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Chatas · Mano svetainė{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>Chatas</h1>
+  <p class="lead">Bendras kambarys visiems bendruomenės nariams.</p>
+</section>
+
+<section class="card chat-box">
+  <div class="chat-messages" id="chat-messages">
+    {% for m in chat %}
+    <div class="chat-msg {{ 'mine' if user and user['id'] == m['user_id'] }}">
+      <div class="chat-meta">
+        <b>{{ m['username'] }}</b>
+        <span class="meme-date">{{ m['created_at'] }}</span>
+      </div>
+      <p>{{ m['body'] }}</p>
+    </div>
+    {% else %}
+    <p class="hint">Dar nėra žinučių. Būk pirmas – parašyk! 👋</p>
+    {% endfor %}
+  </div>
+
+  {% if user %}
+  <form method="post" action="{{ url_for('chat_post') }}" class="chat-form" id="chat-form">
+    <input type="text" name="body" maxlength="500" placeholder="Rašyk žinutę..." required autocomplete="off" id="chat-input">
+    <button class="btn" type="submit">Siųsti</button>
+  </form>
+  {% else %}
+  <p class="hint"><a href="{{ url_for('login') }}">Prisijungti</a>, kad galėtum rašyti chat'e.</p>
+  {% endif %}
+</section>
+
+<script>
+(function () {
+  var box = document.getElementById('chat-messages');
+  if (!box) return;
+  box.scrollTop = box.scrollHeight;
+
+  // automatinis naujinimas: atsinaujina tik žinutės, rašymas nenutrukdomas
+  setInterval(function () {
+    var input = document.getElementById('chat-input');
+    if (input && document.activeElement === input) return;
+    fetch(location.href, { cache: "no-store" })
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        var doc = new DOMParser().parseFromString(html, "text/html");
+        var fresh = doc.getElementById("chat-messages");
+        if (!fresh) return;
+        var oldHtml = box.innerHTML;
+        var newHtml = fresh.innerHTML;
+        if (oldHtml === newHtml) return;
+        box.innerHTML = newHtml;
+        box.scrollTop = box.scrollHeight;
+      })
+      .catch(function () {});
+  }, 4000);
+})();
+</script>
+{% endblock %}

@@ -12,6 +12,8 @@
   <div class="links">
     {% if user %}
       <a href="{{ url_for('memes') }}">Meme siena</a>
+      <a href="{{ url_for('chat') }}">Chatas</a>
+      <a href="{{ url_for('messages_inbox') }}">Žinutės{% if unread %} <span class="badge">{{ unread }}</span>{% endif %}</a>
       <a href="{{ url_for('my_panel', token=user['panel_token']) }}">Mano profilis</a>
       {% if is_staff %}
         <a href="{{ url_for('admin') }}" class="admin-link">Admin panel</a>
@@ -20,6 +22,7 @@
       <a class="btn btn-ghost" href="{{ url_for('logout') }}">Atsijungti</a>
     {% else %}
       <a href="{{ url_for('memes') }}">Meme siena</a>
+      <a href="{{ url_for('chat') }}">Chatas</a>
       <a href="{{ url_for('login') }}">Prisijungti</a>
       <a class="btn" href="{{ url_for('register') }}">Registruotis</a>
     {% endif %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ other['username'] }} · Žinutės{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>{{ other['username'] }}</h1>
+  <p class="lead">Privatus pokalbis. Matote tik jūs du.</p>
+</section>
+
+<section class="card chat-box">
+  <div class="chat-messages" id="chat-messages">
+    {% for m in msgs %}
+    <div class="chat-msg {{ 'mine' if m['from_id'] == user['id'] }}">
+      <div class="chat-meta">
+        <b>{{ 'Tu' if m['from_id'] == user['id'] else other['username'] }}</b>
+        <span class="meme-date">{{ m['created_at'] }}</span>
+      </div>
+      <p>{{ m['body'] }}</p>
+    </div>
+    {% else %}
+    <p class="hint">Dar nėra žinučių. Pasakyk pirmą! 👋</p>
+    {% endfor %}
+  </div>
+
+  <form method="post" action="{{ url_for('messages_send', other_id=other['id']) }}" class="chat-form" id="chat-form">
+    <input type="text" name="body" maxlength="1000" placeholder="Rašyk žinutę {{ other['username'] }}..." required autocomplete="off" id="chat-input">
+    <button class="btn" type="submit">Siųsti</button>
+  </form>
+</section>
+
+<p><a class="mini" href="{{ url_for('messages_inbox') }}">← Atgal į žinutes</a></p>
+
+<script>
+(function () {
+  var box = document.getElementById('chat-messages');
+  if (!box) return;
+  box.scrollTop = box.scrollHeight;
+  setInterval(function () {
+    var input = document.getElementById('chat-input');
+    if (input && document.activeElement === input) return;
+    fetch(location.href, { cache: "no-store" })
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        var doc = new DOMParser().parseFromString(html, "text/html");
+        var fresh = doc.getElementById("chat-messages");
+        if (!fresh) return;
+        if (box.innerHTML === fresh.innerHTML) return;
+        box.innerHTML = fresh.innerHTML;
+        box.scrollTop = box.scrollHeight;
+      })
+      .catch(function () {});
+  }, 4000);
+})();
+</script>
+{% endblock %}

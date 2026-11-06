@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Žinutės · Mano svetainė{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>Privatios žinutės</h1>
+  <p class="lead">Rašyk asmenines žinutes kitiems bendruomenės nariams.</p>
+</section>
+
+<section class="card">
+  <h3>Gauti pokalbiai</h3>
+  {% if convos %}
+  <div class="user-list">
+    {% for c in convos %}
+    <a class="user-row" href="{{ url_for('messages_thread', other_id=c['id']) }}">
+      <span class="avatar">{{ c['username'][:1]|upper }}</span>
+      <span class="user-name">{{ c['username'] }}
+        {% if c['unread'] %}<span class="badge">{{ c['unread'] }}</span>{% endif %}
+      </span>
+      <span class="user-last">{{ c['last_body'] or '' }}</span>
+      <span class="meme-date">{{ c['last_at'] or '' }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="hint">Dar nėra pokalbių – pasirink vartotoją žemiau.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h3>Pradėti naują pokalbį</h3>
+  <div class="user-list">
+    {% for u in users %}
+    <a class="user-row" href="{{ url_for('messages_thread', other_id=u['id']) }}">
+      <span class="avatar">{{ u['username'][:1]|upper }}</span>
+      <span class="user-name">{{ u['username'] }}</span>
+      <span class="user-last">Rašyti žinutę →</span>
+    </a>
+    {% else %}
+    <p class="hint">Kol kas nėra kitų vartotojų.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
