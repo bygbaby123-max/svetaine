@@ -794,6 +794,210 @@ def unread_count():
         db.close()
 
 
+# --------------------------------------------------------------------- žaidimai
+# Kiekvienam žaidimui: antraštė, aprašymas, emoji, ar geriau didelis rezultatas
+# (higher=True -> daugiau taškų geriau; False -> mažiau geriau, pvz. laikas).
+GAMES = {
+    "2048": {
+        "title": "2048",
+        "desc": "Sujung vienodus skaičius ir pasiek 2048! Valdai rodyklėmis.",
+        "icon": "🔢", "higher": True, "unit": "taškų",
+        "rules": "Rodyklėmis (←↑→↓) stumk lentelę. Vienodi skaičiai sujungiasi. Tikslas – surinkti 2048 arba daugiau taškų.",
+    },
+    "snake": {
+        "title": "Gyvatė",
+        "desc": "Valdyk gyvatę, rink obuolius ir nesusidurk su sienomis.",
+        "icon": "🐍", "higher": True, "unit": "taškų",
+        "rules": "Valdyk rodyklėmis arba WASD. Kiekvienas obuolis +10 taškų. Susidūrimas su siena arba savo uodega – žaidimas baigiasi.",
+    },
+    "memory": {
+        "title": "Atmintis",
+        "desc": "Atverk korteles ir rask visas poras – kuo mažiau bandymų, tuo geriau.",
+        "icon": "🃏", "higher": True, "unit": "taškų",
+        "rules": "Atverk po dvi korteles. Jei simboliai sutampa – pora lieka. Taškai = 1000 − 10 × bandymų. Baigęs gausi rezultatą.",
+    },
+    "tictactoe": {
+        "title": "Kryžiukai–nuliai",
+        "desc": "Žaisk 3×3 lentelėje prieš kompiuterį.",
+        "icon": "❌", "higher": True, "unit": "taškų",
+        "rules": "Tu – ❌, kompiuteris – ⭕. Laimėk = 100 taškų, lygiosios = 30, pralaimėjimas = 0.",
+    },
+    "mines": {
+        "title": "Minų laukas",
+        "desc": "Rask 10 minų 9×9 lentelėje – kuo greičiau, tuo geriau.",
+        "icon": "💣", "higher": False, "unit": "sek.",
+        "rules": "Dešiniu pelės mygtuku (arba ilgai paspaudus) dėk vėliavėles. Rezultatas – praleistos sekundės (mažiau geriau).",
+    },
+    "breakout": {
+        "title": "Breakout",
+        "desc": "Sulaužyk visas plytas kamuoliuku.",
+        "icon": "🧱", "higher": True, "unit": "taškų",
+        "rules": "Pelę (arba ← →) valdyk padą. Kiekviena plyta – 10 taškų. Nepraleisk kamuoliuko žemyn!",
+    },
+    "pong": {
+        "title": "Pong",
+        "desc": "Įmušk kamuoliuką į kompiuterio vartus.",
+        "icon": "🏓", "higher": True, "unit": "taškų",
+        "rules": "Pelę (arba ← →) valdyk padą. Kiekvienas įmuštas vartas – 10 taškų. Kompiuteris bėga atgal.",
+    },
+    "flappy": {
+        "title": "Flappy",
+        "desc": "Skriski pro plyšius tarp vamzdžių – spausk SPACE.",
+        "icon": "🐦", "higher": True, "unit": "taškų",
+        "rules": "Paspausk SPACE (arba pelės mygtuką), kad paukštis pakiltų. Kiekvienas praskridus vamzdis +1 taškas.",
+    },
+    "simon": {
+        "title": "Simon",
+        "desc": "Kartok vis ilgėjančią spalvų seką.",
+        "icon": "🌈", "higher": True, "unit": "taškų",
+        "rules": "Išklausyk sekos (šviečia spalvos) ir ją pakartok paspaudimais. Kiekvienas teisingas ratas +10 taškų.",
+    },
+    "reaction": {
+        "title": "Reakcijos laikas",
+        "desc": "Paspausk, kai tik pasidarys žalia – kuo greičiau, tuo geriau.",
+        "icon": "⚡", "higher": False, "unit": "ms",
+        "rules": "Palauk, kol ekranas pasidarys žalias, ir kuo greičiau paspausk mygtuką. Rezultatas – milisekundės (mažiau geriau).",
+    },
+    "whack": {
+        "title": "Mušti kurmius",
+        "desc": "30 sekundžių – mušk kuo daugiau kurmių!",
+        "icon": "🔨", "higher": True, "unit": "taškų",
+        "rules": "Spausk pasirodančius kurmius. Kiekvienas pagautas kirmis +10 taškų. Laikas baigiasi po 30 sekundžių.",
+    },
+    "puzzle15": {
+        "title": "15 dėlionė",
+        "desc": "Sudėliok skaičius nuo 1 iki 15 – kuo mažiau judesių.",
+        "icon": "🧩", "higher": False, "unit": "judes.",
+        "rules": "Spausk plytelę šalia tuščios vietos ir perkelk ją. Tikslas – sudėlioti skaičius eilėje. Rezultatas – judesių skaičius (mažiau geriau).",
+    },
+    "rps": {
+        "title": "Akmuo–žirklės–popierius",
+        "desc": "5 raundai prieš kompiuterį – laimėk daugiau.",
+        "icon": "✊", "higher": True, "unit": "taškų",
+        "rules": "Rinkis: ✊ akmuo, ✌️ žirklės, ✋ popierius. Laimėtas raundas +20 taškų, lygiosios +5.",
+    },
+    "typing": {
+        "title": "Greitas rašymas",
+        "desc": "60 sekundžių – rašyk žodžius kuo greičiau.",
+        "icon": "⌨️", "higher": True, "unit": "taškų",
+        "rules": "Įrašyk rodomą žodį ir spausk Enter. Kiekvienas teisingas žodis +10 taškų. Laikas – 60 sekundžių.",
+    },
+    "dice": {
+        "title": "Kauliukų dvikova",
+        "desc": "10 metimų prieš kompiuterį – kas surinks daugiau taškų?",
+        "icon": "🎲", "higher": True, "unit": "taškų",
+        "rules": "Mėtyk 2 kauliukus (10 kartų). Kompiuteris irgi meta. Kiekvienas metimas = kauliukų suma. Daugiau taškų – laimi!",
+    },
+    "guess": {
+        "title": "Spėk skaičių",
+        "desc": "Rask slapptą skaičių nuo 1 iki 100 – kuo mažiau bandymų.",
+        "icon": "🎯", "higher": False, "unit": "band.",
+        "rules": "Spėk skaičių 1–100. Sistema sako „daugiau“ arba „mažiau“. Rezultatas – bandymų skaičius (mažiau geriau).",
+    },
+    "quiz": {
+        "title": "Viktorina",
+        "desc": "10 klausimų – kiek atsakysi teisingai?",
+        "icon": "❓", "higher": True, "unit": "taškų",
+        "rules": "10 klausimų su 4 atsakymų variantais. Kiekvienas teisingas atsakymas +10 taškų.",
+    },
+    "wordle": {
+        "title": "Žodžių spėjimas",
+        "desc": "Atspėk 5 raidžių žodį per 6 bandymus.",
+        "icon": "📝", "higher": True, "unit": "taškų",
+        "rules": "Spėk 5 raidžių žodį. 🟩 – raida teisingoje vietoje, 🟨 – raida yra, bet ne ta vieta, ⬜ – raidės nėra. Laimėjimas = daugiau bandymų likus = daugiau taškų.",
+    },
+}
+
+
+def _game_top_scores(name):
+    """Geriausi 10 rezultatų žaidime (su vartotojo vardais)."""
+    g = GAMES[name]
+    order = "DESC" if g["higher"] else "ASC"
+    db = get_db()
+    try:
+        rows = db.execute(
+            "SELECT gs.score, gs.created_at, u.username"
+            " FROM game_scores gs JOIN users u ON u.id = gs.user_id"
+            " WHERE gs.game = ?"
+            f" ORDER BY gs.score {order}, gs.id ASC LIMIT 10",
+            (name,),
+        ).fetchall()
+        return rows
+    finally:
+        db.close()
+
+
+@app.route("/games")
+def games():
+    # geriausias kiekvieno žaidimo rezultatas
+    best = {}
+    db = get_db()
+    try:
+        rows = db.execute(
+            "SELECT game, score FROM game_scores"
+        ).fetchall()
+    finally:
+        db.close()
+    for r in rows:
+        g = GAMES.get(r["game"])
+        if not g:
+            continue
+        cur = best.get(r["game"])
+        if cur is None or (r["score"] > cur if g["higher"] else r["score"] < cur):
+            best[r["game"]] = r["score"]
+    return render_template("games.html", games=GAMES, best=best)
+
+
+@app.route("/games/<name>")
+def game(name):
+    g = GAMES.get(name)
+    if not g:
+        abort(404)
+    rows = _game_top_scores(name)
+    my_best = None
+    if session.get("user_id"):
+        db = get_db()
+        try:
+            row = db.execute(
+                "SELECT score FROM game_scores WHERE user_id = ? AND game = ?",
+                (session["user_id"], name),
+            ).fetchall()
+        finally:
+            db.close()
+        if row:
+            scores = [r["score"] for r in row]
+            my_best = max(scores) if g["higher"] else min(scores)
+    return render_template("game.html", key=name, game=g, rows=rows, my_best=my_best)
+
+
+@app.post("/games/<name>/score")
+@login_required
+def game_score(name):
+    g = GAMES.get(name)
+    if not g:
+        abort(404)
+    raw = (request.form.get("score") or "").strip()
+    try:
+        score = int(raw)
+    except ValueError:
+        flash("Rezultatas turi būti sveikasis skaičius.", "error")
+        return redirect(url_for("game", name=name))
+    if score < -1000000 or score > 100000000:
+        flash("Rezultatas per didelis.", "error")
+        return redirect(url_for("game", name=name))
+    db = get_db()
+    try:
+        db.execute(
+            "INSERT INTO game_scores (user_id, game, score, created_at) VALUES (?, ?, ?, ?)",
+            (session["user_id"], name, score, now_str()),
+        )
+        db.commit()
+    finally:
+        db.close()
+    flash(f"Rezultatas įrašytas: {score} {g['unit']}! 🏆", "success")
+    return redirect(url_for("game", name=name))
+
+
 # --------------------------------------------------------------------- paleidimas
 def seed_admin():
     username = os.getenv("ADMIN_USERNAME", "").strip()

@@ -169,6 +169,15 @@ CREATE TABLE IF NOT EXISTS direct_messages (
     FOREIGN KEY (from_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (to_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS game_scores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    game TEXT NOT NULL,
+    score INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 """
 
 PG_USERS_DDL = """
@@ -248,6 +257,16 @@ CREATE TABLE IF NOT EXISTS direct_messages (
 )
 """
 
+PG_GAME_SCORES_DDL = """
+CREATE TABLE IF NOT EXISTS game_scores (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    game TEXT NOT NULL,
+    score INTEGER NOT NULL,
+    created_at TEXT NOT NULL
+)
+"""
+
 
 def _add_missing_columns(conn):
     """Prideda naujus stulpelius į jau esančias lenteles (SQLite ir PostgreSQL)."""
@@ -279,6 +298,7 @@ def init_db():
             conn.execute(PG_MEME_COMMENTS_DDL)
             conn.execute(PG_CHAT_DDL)
             conn.execute(PG_DIRECT_DDL)
+            conn.execute(PG_GAME_SCORES_DDL)
         else:
             conn.executescript(SQLITE_SCHEMA)
         _add_missing_columns(conn)
