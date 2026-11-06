@@ -190,6 +190,7 @@ CREATE TABLE IF NOT EXISTS accessories (
     emoji TEXT,
     image TEXT,
     css TEXT,
+    slot TEXT NOT NULL DEFAULT 'name',
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL
 );
@@ -318,6 +319,7 @@ CREATE TABLE IF NOT EXISTS accessories (
     emoji TEXT,
     image TEXT,
     css TEXT,
+    slot TEXT NOT NULL DEFAULT 'name',
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL
 )
@@ -355,25 +357,48 @@ CREATE TABLE IF NOT EXISTS meta (
 
 def _add_missing_columns(conn):
     """Prideda naujus stulpelius į jau esančias lenteles (SQLite ir PostgreSQL)."""
-    have = set()
-    if conn.pg:
-        rows = conn.execute(
-            "SELECT column_name FROM information_schema.columns WHERE table_name = 'users'"
-        ).fetchall()
-        for r in rows:
-            have.add(r["column_name"])
-    else:
-        for r in conn.execute("PRAGMA table_info(users)").fetchall():
-            have.add(r["name"])
+    def have_columns(table):
+        have = set()
+        if conn.pg:
+            rows = conn.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = ?",
+                (table,),
+            ).fetchall()
+            for r in rows:
+                have.add(r["column_name"])
+        else:
+            for r in conn.execute(f"PRAGMA table_info({table})").fetchall():
+                have.add(r["name"])
+        return have
 
     for column, ddl in (
         ("is_coowner", "is_coowner INTEGER NOT NULL DEFAULT 0"),
         ("coins", "coins INTEGER NOT NULL DEFAULT 0"),
         ("last_bonus_date", "last_bonus_date TEXT"),
     ):
-        if column not in have:
+        if column not in have_columns("users"):
             conn.execute(f"ALTER TABLE users ADD COLUMN {ddl}")
+
+    if "accessories" in _tables(conn):
+        for column, ddl in (
+            ("slot", "slot TEXT NOT NULL DEFAULT 'name'"),
+        ):
+            if column not in have_columns("accessories"):
+                conn.execute(f"ALTER TABLE accessories ADD COLUMN {ddl}")
     conn.commit()
+
+
+def _tables(conn):
+    """Egzistuojančių lentelių vardai (SQLite ir PostgreSQL)."""
+    if conn.pg:
+        rows = conn.execute(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+        ).fetchall()
+        return {r["table_name"] for r in rows}
+    rows = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table'"
+    ).fetchall()
+    return {r["name"] for r in rows}
 
 
 def init_db():

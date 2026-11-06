@@ -130,16 +130,24 @@ def daily_bonus(user_id):
 
 
 def equipped_map():
-    """{vartotojo_id: aksesuaras} – kas ką dabar dėvi (visiems matoma)."""
+    """{vartotojo_id: {"name": acc, "frame": acc}} – kas ką dabar dėvi.
+
+    Galima dėvėti po vieną prie vardo ir po vieną profilio rėmelį.
+    """
     db = get_db()
     try:
         rows = db.execute(
-            "SELECT ua.user_id, a.id AS acc_id, a.name, a.emoji, a.image, a.css"
+            "SELECT ua.user_id, a.id AS acc_id, a.name, a.emoji, a.image,"
+            " a.css, a.slot"
             " FROM user_accessories ua"
             " JOIN accessories a ON a.id = ua.accessory_id"
             " WHERE ua.equipped = 1 AND a.active = 1"
         ).fetchall()
-        return {r["user_id"]: dict(r) for r in rows}
+        out = {}
+        for r in rows:
+            slot = r["slot"] or "name"
+            out.setdefault(r["user_id"], {})[slot] = dict(r)
+        return out
     finally:
         db.close()
 
@@ -147,7 +155,7 @@ def equipped_map():
 def make_acc_html(emap):
     """Gamina funkciją, kuri prie vardo gražina aksesuarą (emoji arba nuotrauką)."""
     def acc_html(user_id):
-        a = emap.get(user_id)
+        a = emap.get(user_id, {}).get("name")
         if not a:
             return ""
         name = str(a.get("name") or "").replace('"', "'")
@@ -159,6 +167,19 @@ def make_acc_html(emap):
         css = "acc-badge " + (a.get("css") or "")
         return Markup(f'<span class="{css.strip()}" title="{name}">{emoji}</span>')
     return acc_html
+
+
+def make_frame_html(emap):
+    """Gamina funkciją, kuri grąžina profilio rėmelio HTML (arba tuščią)."""
+    def frame_html(user_id):
+        a = emap.get(user_id, {}).get("frame")
+        if not a or not a.get("image"):
+            return ""
+        name = str(a.get("name") or "").replace('"', "'")
+        return Markup(
+            f'<img class="profile-frame" src="{a["image"]}" alt="{name}" title="{name}">'
+        )
+    return frame_html
 
 
 def send_data_email(user, action, heading):
@@ -242,6 +263,7 @@ def inject_globals():
         "unread": unread,
         "coins": (u["coins"] if u else 0),
         "acc_html": make_acc_html(emap),
+        "frame_html": make_frame_html(emap),
         "coins_daily": COINS_DAILY,
         "coins_play": COINS_PLAY,
         "coins_record": COINS_RECORD,
@@ -1097,7 +1119,8 @@ def game_score(name):
 
 # ------------------------------------------------------------------ parduotuvė
 # Aksesuarai, kuriuos galima nusipirkti už Bolt Coins.
-# image kelias prasideda nuo /static/... (kai atsiųsi papuošimus – įdėsi į static/shop/).
+# slot: 'name' -> rodomas prie vardo; 'frame' -> profilio rėmelis.
+# image kelias prasideda nuo /static/shop/...
 SHOP_ITEMS = [
     {
         "key": "rainbow_crown",
@@ -1107,6 +1130,47 @@ SHOP_ITEMS = [
         "emoji": "👑",
         "image": "",
         "css": "acc-rainbow",
+        "slot": "name",
+    },
+    {
+        "key": "heart_badge",
+        "name": "Širdelė",
+        "description": "Animuota rožinė širdelė prie tavo vardo – visi matys, kad myli svetainę! 💗",
+        "price": 35,
+        "emoji": "",
+        "image": "/static/shop/heart.gif",
+        "css": "",
+        "slot": "name",
+    },
+    {
+        "key": "gold_crown",
+        "name": "Auksinė karūna",
+        "description": "Klasikinė auksinė karūna prie vardo – karališkas statusas! 👑",
+        "price": 55,
+        "emoji": "",
+        "image": "/static/shop/crown.gif",
+        "css": "",
+        "slot": "name",
+    },
+    {
+        "key": "atom_frame",
+        "name": "Atomų rėmelis",
+        "description": "Sisukantis atomų orbitų rėmelis aplink tavo profilį! ⚛️",
+        "price": 45,
+        "emoji": "",
+        "image": "/static/shop/atom-frame.gif",
+        "css": "",
+        "slot": "frame",
+    },
+    {
+        "key": "beads_frame",
+        "name": "Karoliukų rėmelis",
+        "description": "Švelniai švytintis karoliukų ratas aplink tavo profilio nuotrauką! 💍",
+        "price": 70,
+        "emoji": "",
+        "image": "/static/shop/beads-frame.gif",
+        "css": "",
+        "slot": "frame",
     },
 ]
 
@@ -1121,10 +1185,11 @@ def seed_shop():
             ).fetchone():
                 db.execute(
                     "INSERT INTO accessories (key, name, description, price, emoji,"
-                    " image, css, active, created_at)"
-                    " VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)",
+                    " image, css, slot, active, created_at)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
                     (it["key"], it["name"], it["description"], it["price"],
-                     it["emoji"], it["image"], it["css"], now_str()),
+                     it["emoji"], it["image"], it["css"],
+                     it.get("slot", "name"), now_str()),
                 )
         # vienkartinė dovanėlė visiems jau esantiems vartotojams
         if not db.execute(
@@ -1188,6 +1253,12 @@ def shop_buy(item_id):
         db.execute(
             "UPDATE users SET coins = coins - ? WHERE id = ?", (item["price"], uid)
         )
+        # nuimame kitą to paties tipo aksesuarą (galima dėvėti po vieną kiekvieno)
+        db.execute(
+            "UPDATE user_accessories SET equipped = 0 WHERE user_id = ?"
+            " AND accessory_id IN (SELECT id FROM accessories WHERE slot = ?)",
+            (uid, item["slot"] or "name"),
+        )
         db.execute(
             "INSERT INTO user_accessories (user_id, accessory_id, equipped, bought_at)"
             " VALUES (?, ?, 1, ?)",
@@ -1206,9 +1277,10 @@ def shop_equip(item_id):
     uid = session["user_id"]
     db = get_db()
     try:
-        if not db.execute(
-            "SELECT 1 FROM accessories WHERE id = ? AND active = 1", (item_id,)
-        ).fetchone():
+        item = db.execute(
+            "SELECT * FROM accessories WHERE id = ? AND active = 1", (item_id,)
+        ).fetchone()
+        if not item:
             abort(404)
         if not db.execute(
             "SELECT 1 FROM user_accessories WHERE user_id = ? AND accessory_id = ?",
@@ -1216,8 +1288,11 @@ def shop_equip(item_id):
         ).fetchone():
             flash("Šio aksesuaro neturi – pirmiausia jį nupirk.", "error")
             return redirect(url_for("shop"))
+        # nuimame kitą to paties tipo (slot) – skirtingi tipai gali būti kartu
         db.execute(
-            "UPDATE user_accessories SET equipped = 0 WHERE user_id = ?", (uid,)
+            "UPDATE user_accessories SET equipped = 0 WHERE user_id = ?"
+            " AND accessory_id IN (SELECT id FROM accessories WHERE slot = ?)",
+            (uid, item["slot"] or "name"),
         )
         db.execute(
             "UPDATE user_accessories SET equipped = 1"
