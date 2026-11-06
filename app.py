@@ -156,11 +156,13 @@ admin_required = owner_required
 @app.context_processor
 def inject_globals():
     u = current_user()
+    unread = unread_count() if u else 0
     return {
         "user": u,
         "google_client_id": GOOGLE_CLIENT_ID,
         "is_owner": bool(u and u["is_admin"]),
         "is_staff": bool(u and (u["is_admin"] or u["is_coowner"])),
+        "unread": unread,
     }
 
 
@@ -581,6 +583,157 @@ def meme_delete(meme_id):
         db.close()
     flash("Meme ištrinta.", "success")
     return redirect(url_for("memes"))
+
+
+# ------------------------------------------------------------------------- chatas
+CHAT_SQL = """
+SELECT c.id, c.body, c.created_at, u.username, c.user_id
+FROM chat_messages c
+JOIN users u ON u.id = c.user_id
+"""
+
+
+@app.route("/chat")
+def chat():
+    db = get_db()
+    try:
+        rows = db.execute(CHAT_SQL + " ORDER BY c.id DESC LIMIT 100").fetchall()
+    finally:
+        db.close()
+    rows = list(reversed(rows))
+    return render_template("chat.html", chat=rows)
+
+
+@app.post("/chat")
+@login_required
+def chat_post():
+    body = (request.form.get("body") or "").strip()
+    if not body:
+        flash("Žinutė tuščia.", "error")
+        return redirect(url_for("chat"))
+    if len(body) > 500:
+        flash("Žinutė per ilga (maks. 500 simbolių).", "error")
+        return redirect(url_for("chat"))
+    db = get_db()
+    try:
+        db.execute(
+            "INSERT INTO chat_messages (user_id, body, created_at) VALUES (?, ?, ?)",
+            (session["user_id"], body, now_str()),
+        )
+        db.commit()
+    finally:
+        db.close()
+    return redirect(url_for("chat"))
+
+
+# ------------------------------------------------------------- privačios žinutės
+@app.route("/messages")
+@login_required
+def messages_inbox():
+    uid = session["user_id"]
+    db = get_db()
+    try:
+        users = db.execute(
+            "SELECT id, username FROM users WHERE id != ? ORDER BY username", (uid,)
+        ).fetchall()
+        convos = db.execute(
+            """SELECT u.id, u.username,
+                      (SELECT body FROM direct_messages
+                       WHERE (from_id = ? AND to_id = u.id) OR (from_id = u.id AND to_id = ?)
+                       ORDER BY id DESC LIMIT 1) AS last_body,
+                      (SELECT created_at FROM direct_messages
+                       WHERE (from_id = ? AND to_id = u.id) OR (from_id = u.id AND to_id = ?)
+                       ORDER BY id DESC LIMIT 1) AS last_at,
+                      (SELECT COUNT(*) FROM direct_messages
+                       WHERE from_id = u.id AND to_id = ? AND read_at IS NULL) AS unread
+               FROM users u
+               WHERE u.id != ? AND EXISTS (
+                   SELECT 1 FROM direct_messages d
+                   WHERE (d.from_id = ? AND d.to_id = u.id) OR (d.from_id = u.id AND d.to_id = ?)
+               )
+               ORDER BY last_at DESC""",
+            (uid, uid, uid, uid, uid, uid, uid, uid),
+        ).fetchall()
+    finally:
+        db.close()
+    return render_template("messages.html", users=users, convos=convos)
+
+
+@app.route("/messages/<int:other_id>")
+@login_required
+def messages_thread(other_id):
+    uid = session["user_id"]
+    if other_id == uid:
+        flash("Negali rašyti žinutės sau.", "error")
+        return redirect(url_for("messages_inbox"))
+    db = get_db()
+    try:
+        other = db.execute(
+            "SELECT id, username FROM users WHERE id = ?", (other_id,)
+        ).fetchone()
+        if not other:
+            flash("Vartotojas nerastas.", "error")
+            return redirect(url_for("messages_inbox"))
+        rows = db.execute(
+            """SELECT id, from_id, body, created_at FROM direct_messages
+               WHERE (from_id = ? AND to_id = ?) OR (from_id = ? AND to_id = ?)
+               ORDER BY id DESC LIMIT 100""",
+            (uid, other_id, other_id, uid),
+        ).fetchall()
+        db.execute(
+            "UPDATE direct_messages SET read_at = ? WHERE from_id = ? AND to_id = ? AND read_at IS NULL",
+            (now_str(), other_id, uid),
+        )
+        db.commit()
+    finally:
+        db.close()
+    rows = list(reversed(rows))
+    return render_template("thread.html", other=other, msgs=rows)
+
+
+@app.post("/messages/<int:other_id>")
+@login_required
+def messages_send(other_id):
+    uid = session["user_id"]
+    body = (request.form.get("body") or "").strip()
+    if other_id == uid:
+        flash("Negali rašyti žinutės sau.", "error")
+        return redirect(url_for("messages_inbox"))
+    if not body:
+        flash("Žinutė tuščia.", "error")
+        return redirect(url_for("messages_thread", other_id=other_id))
+    if len(body) > 1000:
+        flash("Žinutė per ilga (maks. 1000 simbolių).", "error")
+        return redirect(url_for("messages_thread", other_id=other_id))
+    db = get_db()
+    try:
+        other = db.execute("SELECT id FROM users WHERE id = ?", (other_id,)).fetchone()
+        if not other:
+            flash("Vartotojas nerastas.", "error")
+            return redirect(url_for("messages_inbox"))
+        db.execute(
+            "INSERT INTO direct_messages (from_id, to_id, body, created_at) VALUES (?, ?, ?, ?)",
+            (uid, other_id, body, now_str()),
+        )
+        db.commit()
+    finally:
+        db.close()
+    return redirect(url_for("messages_thread", other_id=other_id))
+
+
+def unread_count():
+    uid = session.get("user_id")
+    if not uid:
+        return 0
+    db = get_db()
+    try:
+        row = db.execute(
+            "SELECT COUNT(*) AS n FROM direct_messages WHERE to_id = ? AND read_at IS NULL",
+            (uid,),
+        ).fetchone()
+        return row["n"] if row else 0
+    finally:
+        db.close()
 
 
 # --------------------------------------------------------------------- paleidimas

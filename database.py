@@ -150,6 +150,25 @@ CREATE TABLE IF NOT EXISTS meme_comments (
     FOREIGN KEY (meme_id) REFERENCES memes(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS direct_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_id INTEGER NOT NULL,
+    to_id INTEGER NOT NULL,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    read_at TEXT,
+    FOREIGN KEY (from_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (to_id) REFERENCES users(id) ON DELETE CASCADE
+);
 """
 
 PG_USERS_DDL = """
@@ -209,6 +228,26 @@ CREATE TABLE IF NOT EXISTS meme_comments (
 )
 """
 
+PG_CHAT_DDL = """
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL
+)
+"""
+
+PG_DIRECT_DDL = """
+CREATE TABLE IF NOT EXISTS direct_messages (
+    id SERIAL PRIMARY KEY,
+    from_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    read_at TEXT
+)
+"""
+
 
 def _add_missing_columns(conn):
     """Prideda naujus stulpelius į jau esančias lenteles (SQLite ir PostgreSQL)."""
@@ -238,6 +277,8 @@ def init_db():
             conn.execute(PG_MEMES_DDL)
             conn.execute(PG_MEME_VOTES_DDL)
             conn.execute(PG_MEME_COMMENTS_DDL)
+            conn.execute(PG_CHAT_DDL)
+            conn.execute(PG_DIRECT_DDL)
         else:
             conn.executescript(SQLITE_SCHEMA)
         _add_missing_columns(conn)
