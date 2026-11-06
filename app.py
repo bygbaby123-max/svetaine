@@ -626,6 +626,30 @@ def chat_post():
     return redirect(url_for("chat"))
 
 
+@app.post("/chat/<int:msg_id>/delete")
+@login_required
+def chat_delete(msg_id):
+    """Žinutę gali ištrinti jos autorius arba savininkas (bet kieno)."""
+    db = get_db()
+    try:
+        m = db.execute(
+            "SELECT id, user_id FROM chat_messages WHERE id = ?", (msg_id,)
+        ).fetchone()
+        if not m:
+            flash("Žinutė nerasta.", "error")
+            return redirect(url_for("chat"))
+        user = current_user()
+        if m["user_id"] != session["user_id"] and not (user and user["is_admin"]):
+            flash("Gali trinti tik savo žinutes.", "error")
+            return redirect(url_for("chat"))
+        db.execute("DELETE FROM chat_messages WHERE id = ?", (msg_id,))
+        db.commit()
+    finally:
+        db.close()
+    flash("Žinutė ištrinta.", "success")
+    return redirect(url_for("chat"))
+
+
 # ------------------------------------------------------------- privačios žinutės
 @app.route("/messages")
 @login_required
@@ -718,6 +742,40 @@ def messages_send(other_id):
         db.commit()
     finally:
         db.close()
+    return redirect(url_for("messages_thread", other_id=other_id))
+
+
+@app.post("/messages/<int:msg_id>/delete")
+@login_required
+def message_delete(msg_id):
+    """Žinutę gali ištrinti jos autorius arba savininkas (bet kieno)."""
+    db = get_db()
+    try:
+        m = db.execute(
+            "SELECT id, from_id, to_id FROM direct_messages WHERE id = ?", (msg_id,)
+        ).fetchone()
+        if not m:
+            flash("Žinutė nerasta.", "error")
+            return redirect(url_for("messages_inbox"))
+        user = current_user()
+        if m["from_id"] != session["user_id"] and not (user and user["is_admin"]):
+            flash("Gali trinti tik savo žinutes.", "error")
+            return redirect(url_for("messages_inbox"))
+        # grįžtame į tą patį pokalbį (jei savininkas trina svetimą – į dėžutę)
+        if m["from_id"] == session["user_id"]:
+            other_id = m["to_id"]
+        elif m["to_id"] == session["user_id"]:
+            other_id = m["from_id"]
+        else:
+            db.execute("DELETE FROM direct_messages WHERE id = ?", (msg_id,))
+            db.commit()
+            flash("Žinutė ištrinta.", "success")
+            return redirect(url_for("messages_inbox"))
+        db.execute("DELETE FROM direct_messages WHERE id = ?", (msg_id,))
+        db.commit()
+    finally:
+        db.close()
+    flash("Žinutė ištrinta.", "success")
     return redirect(url_for("messages_thread", other_id=other_id))
 
 
