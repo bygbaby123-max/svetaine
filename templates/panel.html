@@ -3,7 +3,16 @@
 
 {% block content %}
 <div class="auth-box wide">
-  <h1>{% if is_owner %}Mano profilis{% else %}{{ target['username'] }} paskyra{% endif %}</h1>
+  <div class="profile-head">
+    <div class="profile-avatar">
+      <span class="avatar-letter">{{ target['username'][:1]|upper }}</span>
+      {{ frame_html(target['id']) }}
+    </div>
+    <div>
+      <h1>{% if is_owner %}Mano profilis{% else %}{{ target['username'] }} paskyra{% endif %}</h1>
+      <p class="muted">{{ acc_html(target['id']) }} {{ target['username'] }}</p>
+    </div>
+  </div>
   {% if not is_owner %}
     <p class="muted">Peržiūri kito vartotojo viešą paskyrą (pagal nuorodą iš laiško).</p>
   {% endif %}
@@ -20,8 +29,9 @@
   </table>
 
   <div class="shop-balance profile-balance">
-    <div class="balance-line">Tavo aksesuaras: <span class="acc-preview">{{ acc_html(target['id']) or '—' }}</span></div>
-    <p class="hint">Aksesuarus gali nusipirkti už Bolt Coins parduotuvėje – jie matomi prie tavo vardo visoje svetainėje.</p>
+    <div class="balance-line">Tavo aksesuaras prie vardo: <span class="acc-preview">{{ acc_html(target['id']) or '—' }}</span></div>
+    <div class="balance-line">Tavo profilio rėmelis: <span class="acc-preview">{{ frame_html(target['id']) or '—' }}</span></div>
+    <p class="hint">Aksesuarus gali nusipirkti už Bolt Coins parduotuvėje – jie matomi prie tavo vardo visoje svetainėje, o rėmelis – profilyje.</p>
     <a class="btn" href="{{ url_for('shop') }}">🛒 Eiti į parduotuvę</a>
   </div>
 

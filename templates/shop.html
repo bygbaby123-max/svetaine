@@ -4,7 +4,7 @@
 {% block content %}
 <section class="hero">
   <h1>🛒 Parduotuvė</h1>
-  <p class="lead">Uždirbk <b>Bolt Coins</b> žaisdamas žaidimus ir nusipirk savo paskyros aksesuarą – jis matomas prie tavo vardo visoje svetainėje!</p>
+  <p class="lead">Uždirbk <b>Bolt Coins</b> žaisdamas žaidimus ir nusipirk savo paskyros aksesuarą – ženkleliai matomi prie tavo vardo, o rėmeliai – profilio puslapyje!</p>
 </section>
 
 <section class="card shop-balance">
@@ -15,8 +15,11 @@
 <section class="game-grid shop-grid">
   {% for it in items %}
   <div class="card shop-card">
+    <span class="shop-slot {% if it['slot'] == 'frame' %}slot-frame{% else %}slot-name{% endif %}">
+      {% if it['slot'] == 'frame' %}🖼️ Profilio rėmelis{% else %}🏷️ Prie vardo{% endif %}
+    </span>
     {% if it['image'] %}
-      <img class="shop-img" src="{{ it['image'] }}" alt="{{ it['name'] }}">
+      <img class="shop-img {% if it['slot'] == 'frame' %}shop-img-frame{% endif %}" src="{{ it['image'] }}" alt="{{ it['name'] }}">
     {% else %}
       <span class="shop-emoji {{ it['css'] }}">{{ it['emoji'] or '✨' }}</span>
     {% endif %}
@@ -53,8 +56,9 @@
 </section>
 
 <section class="card">
-  <h3>Kam aksesuaras?</h3>
-  <p class="hint">Nupirkęs aksesuarą jis automatiškai uždedamas – jį matysi prie savo vardo navigacijoje, chat'e, meme sienoje ir rezultatų lentelėse. Gali bet kada nusimti ar vėl uždėti čia pat.</p>
+  <h3>Kam aksesuarai?</h3>
+  <p class="hint"><b>🏷️ Prie vardo</b> – ženklelis šalia vardo navigacijoje, chat'e, meme sienoje ir rezultatų lentelėse. <b>🖼️ Profilio rėmelis</b> – rėmelis aplink tavo avatarą profilio puslapyje.</p>
+  <p class="hint">Perkant aksesuaras automatiškai uždedami. Vieno tipo (vardas ar rėmelis) galima dėvėti po vieną – naujas pakeičia seną. Gali bet kada nusimti ar vėl uždėti čia pat.</p>
   <p class="hint">Kad galėtum pirkti, tiesiog žaisk žaidimus – už kiekvieną žaidimą gauni {{ coins_play }} Bolt Coins, o už rekordą {{ coins_record }}!</p>
 </section>
 {% endblock %}
