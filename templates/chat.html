@@ -4,7 +4,7 @@
 {% block content %}
 <section class="hero">
   <h1>Chatas</h1>
-  <p class="lead">Bendras kambarys visiems bendruomenės nariams.</p>
+  <p class="lead">Bendras kambarys – visi prisijungę vartotojai mato tas pačias žinutes.</p>
 </section>
 
 <section class="card chat-box">
@@ -14,6 +14,12 @@
       <div class="chat-meta">
         <b>{{ m['username'] }}</b>
         <span class="meme-date">{{ m['created_at'] }}</span>
+        {% if user and (user['id'] == m['user_id'] or is_owner) %}
+        <form method="post" action="{{ url_for('chat_delete', msg_id=m['id']) }}" class="msg-del"
+              onsubmit="return confirm('Ištrinti šią žinutę?');">
+          <button class="mini mini-danger" type="submit" title="Ištrinti žinutę">Trinti</button>
+        </form>
+        {% endif %}
       </div>
       <p>{{ m['body'] }}</p>
     </div>
@@ -24,14 +30,20 @@
 
   {% if user %}
   <form method="post" action="{{ url_for('chat_post') }}" class="chat-form" id="chat-form">
+    <div class="emoji-wrap">
+      <button type="button" class="emoji-toggle" id="emoji-toggle" title="Įdėti emociją">😊</button>
+      <div class="emoji-panel" id="emoji-panel" hidden></div>
+    </div>
     <input type="text" name="body" maxlength="500" placeholder="Rašyk žinutę..." required autocomplete="off" id="chat-input">
     <button class="btn" type="submit">Siųsti</button>
   </form>
+  <p class="hint">Žinutę gali ištrinti jos autorius arba savininkas.</p>
   {% else %}
   <p class="hint"><a href="{{ url_for('login') }}">Prisijungti</a>, kad galėtum rašyti chat'e.</p>
   {% endif %}
 </section>
 
+<script src="{{ url_for('static', filename='emoji.js') }}"></script>
 <script>
 (function () {
   var box = document.getElementById('chat-messages');
