@@ -41,7 +41,7 @@
       {% for r in rows %}
       <tr>
         <td>{{ loop.index }}</td>
-        <td>{{ r['username'] }}</td>
+        <td>{{ acc_html(r['user_id']) }} {{ r['username'] }}</td>
         <td><b>{{ r['score'] }}</b> {{ game['unit'] }}</td>
         <td class="meme-date">{{ r['created_at'] }}</td>
       </tr>

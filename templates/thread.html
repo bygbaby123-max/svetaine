@@ -12,7 +12,7 @@
     {% for m in msgs %}
     <div class="chat-msg {{ 'mine' if m['from_id'] == user['id'] }}">
       <div class="chat-meta">
-        <b>{{ 'Tu' if m['from_id'] == user['id'] else other['username'] }}</b>
+        <b>{{ acc_html(m['from_id']) }} {{ 'Tu' if m['from_id'] == user['id'] else other['username'] }}</b>
         <span class="meme-date">{{ m['created_at'] }}</span>
         {% if user and (m['from_id'] == user['id'] or is_owner) %}
         <form method="post" action="{{ url_for('message_delete', msg_id=m['id']) }}" class="msg-del"

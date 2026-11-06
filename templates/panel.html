@@ -9,14 +9,21 @@
   {% endif %}
 
   <table class="table">
-    <tr><td>Vartotojo vardas</td><td><b>{{ target['username'] }}</b></td></tr>
+    <tr><td>Vartotojo vardas</td><td><b>{{ acc_html(target['id']) }} {{ target['username'] }}</b></td></tr>
     <tr><td>El. paštas</td><td><b>{{ target['email'] }}</b></td></tr>
     <tr><td>Gimimo metai</td><td><b>{{ target['birth_year'] or 'Praleista' }}</b></td></tr>
+    <tr><td>Bolt Coins</td><td><b class="coins-big">🪙 {{ target['coins'] }}</b></td></tr>
     <tr><td>Paskyra sukurta</td><td><b>{{ target['created_at'] }}</b></td></tr>
     <tr><td>Paskutinis prisijungimas</td><td><b>{{ target['last_login_at'] or '—' }}</b></td></tr>
     <tr><td>Paskutinis IP</td><td><b>{{ target['last_login_ip'] or '—' }}</b></td></tr>
     <tr><td>Prisijungimų skaičius</td><td><b>{{ target['login_count'] }}</b></td></tr>
   </table>
+
+  <div class="shop-balance profile-balance">
+    <div class="balance-line">Tavo aksesuaras: <span class="acc-preview">{{ acc_html(target['id']) or '—' }}</span></div>
+    <p class="hint">Aksesuarus gali nusipirkti už Bolt Coins parduotuvėje – jie matomi prie tavo vardo visoje svetainėje.</p>
+    <a class="btn" href="{{ url_for('shop') }}">🛒 Eiti į parduotuvę</a>
+  </div>
 
   <h2>Prisijungimų istorija</h2>
   {% if logins %}

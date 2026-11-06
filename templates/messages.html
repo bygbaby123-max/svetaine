@@ -14,7 +14,7 @@
     {% for c in convos %}
     <a class="user-row" href="{{ url_for('messages_thread', other_id=c['id']) }}">
       <span class="avatar">{{ c['username'][:1]|upper }}</span>
-      <span class="user-name">{{ c['username'] }}
+      <span class="user-name">{{ acc_html(c['id']) }} {{ c['username'] }}
         {% if c['unread'] %}<span class="badge">{{ c['unread'] }}</span>{% endif %}
       </span>
       <span class="user-last">{{ c['last_body'] or '' }}</span>
@@ -33,7 +33,7 @@
     {% for u in users %}
     <a class="user-row" href="{{ url_for('messages_thread', other_id=u['id']) }}">
       <span class="avatar">{{ u['username'][:1]|upper }}</span>
-      <span class="user-name">{{ u['username'] }}</span>
+      <span class="user-name">{{ acc_html(u['id']) }} {{ u['username'] }}</span>
       <span class="user-last">Rašyti žinutę →</span>
     </a>
     {% else %}

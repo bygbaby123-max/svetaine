@@ -30,7 +30,7 @@
   {% for m in memes %}
   <article class="card meme-card">
     <div class="meme-head">
-      <b>{{ m['username'] }}</b>
+      <b>{{ acc_html(m['user_id']) }} {{ m['username'] }}</b>
       <span class="meme-date">{{ m['created_at'] }}</span>
       {% if user and (user['id'] == m['user_id'] or is_owner) %}
       <form method="post" action="{{ url_for('meme_delete', meme_id=m['id']) }}" class="meme-del"
@@ -61,7 +61,7 @@
     <div class="meme-comments">
       {% for c in comments.get(m['id'], []) %}
       <div class="meme-comment">
-        <b>{{ c['username'] }}</b>
+        <b>{{ acc_html(c['user_id']) }} {{ c['username'] }}</b>
         <span class="meme-date">{{ c['created_at'] }}</span>
         <p>{{ c['body'] }}</p>
       </div>

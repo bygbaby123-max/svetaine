@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Parduotuvė · Mano svetainė{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>🛒 Parduotuvė</h1>
+  <p class="lead">Uždirbk <b>Bolt Coins</b> žaisdamas žaidimus ir nusipirk savo paskyros aksesuarą – jis matomas prie tavo vardo visoje svetainėje!</p>
+</section>
+
+<section class="card shop-balance">
+  <div class="balance-line">Tavo balansas: <b class="coins-big">🪙 {{ coins }} Bolt Coins</b></div>
+  <p class="hint">Kaip uždirbti: 🎮 žaidimas +{{ coins_play }} (asmeninis rekordas +{{ coins_record }}) · 📅 kasdienė dovanėlė +{{ coins_daily }} · 👋 registracija +50</p>
+</section>
+
+<section class="game-grid shop-grid">
+  {% for it in items %}
+  <div class="card shop-card">
+    {% if it['image'] %}
+      <img class="shop-img" src="{{ it['image'] }}" alt="{{ it['name'] }}">
+    {% else %}
+      <span class="shop-emoji {{ it['css'] }}">{{ it['emoji'] or '✨' }}</span>
+    {% endif %}
+    <h3>{{ it['name'] }}</h3>
+    <p class="hint">{{ it['description'] }}</p>
+    <p class="shop-price">🪙 {{ it['price'] }} Bolt Coins</p>
+
+    {% if not user %}
+      <a class="btn btn-ghost" href="{{ url_for('login') }}">Prisijungti</a>
+    {% elif it['id'] in owned %}
+      {% if owned[it['id']] %}
+      <form method="post" action="{{ url_for('shop_unequip', item_id=it['id']) }}">
+        <button class="btn btn-ghost" type="submit">✓ Dėvimas – nusimti</button>
+      </form>
+      {% else %}
+      <div class="shop-actions">
+        <form method="post" action="{{ url_for('shop_equip', item_id=it['id']) }}">
+          <button class="btn" type="submit">Dėvėti</button>
+        </form>
+        <span class="hint">Jau nupirkta</span>
+      </div>
+      {% endif %}
+    {% elif coins >= it['price'] %}
+      <form method="post" action="{{ url_for('shop_buy', item_id=it['id']) }}">
+        <button class="btn" type="submit">Nupirkti 🪙 {{ it['price'] }}</button>
+      </form>
+    {% else %}
+      <button class="btn btn-disabled" type="button" disabled>Trūksta {{ it['price'] - coins }} 🪙</button>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="card"><p>Parduotuvė dar tuščia – greitai bus prekių!</p></div>
+  {% endfor %}
+</section>
+
+<section class="card">
+  <h3>Kam aksesuaras?</h3>
+  <p class="hint">Nupirkęs aksesuarą jis automatiškai uždedamas – jį matysi prie savo vardo navigacijoje, chat'e, meme sienoje ir rezultatų lentelėse. Gali bet kada nusimti ar vėl uždėti čia pat.</p>
+  <p class="hint">Kad galėtum pirkti, tiesiog žaisk žaidimus – už kiekvieną žaidimą gauni {{ coins_play }} Bolt Coins, o už rekordą {{ coins_record }}!</p>
+</section>
+{% endblock %}
