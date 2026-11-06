@@ -429,6 +429,160 @@ def coowner_remove(user_id):
     return redirect(url_for("admin"))
 
 
+# --------------------------------------------------------------------------- meme siena
+MEME_SQL = """
+SELECT m.id, m.user_id, m.title, m.image, m.created_at,
+       u.username,
+       COALESCE((SELECT SUM(v.vote) FROM meme_votes v WHERE v.meme_id = m.id), 0) AS score,
+       (SELECT COUNT(*) FROM meme_comments c WHERE c.meme_id = m.id) AS comment_count
+FROM memes m
+JOIN users u ON u.id = m.user_id
+"""
+
+
+@app.route("/memes")
+def memes():
+    db = get_db()
+    try:
+        rows = db.execute(MEME_SQL + " ORDER BY m.id DESC LIMIT 100").fetchall()
+        comment_rows = db.execute(
+            """SELECT c.id, c.meme_id, c.body, c.created_at, u.username
+               FROM meme_comments c JOIN users u ON u.id = c.user_id
+               ORDER BY c.id ASC"""
+        ).fetchall()
+    finally:
+        db.close()
+    uid = session.get("user_id")
+    votes = {}
+    if uid:
+        db = get_db()
+        try:
+            my_votes = db.execute(
+                "SELECT meme_id, vote FROM meme_votes WHERE user_id = ?", (uid,)
+            ).fetchall()
+            votes = {v["meme_id"]: v["vote"] for v in my_votes}
+        finally:
+            db.close()
+    comments = {}
+    for c in comment_rows:
+        comments.setdefault(c["meme_id"], []).append(c)
+    return render_template("memes.html", memes=rows, my_votes=votes, comments=comments)
+
+
+@app.post("/memes")
+@login_required
+def meme_create():
+    title = (request.form.get("title") or "").strip()
+    image = (request.form.get("image") or "").strip()
+    if not title:
+        flash("Įrašyk antraštę.", "error")
+        return redirect(url_for("memes"))
+    if len(title) > 100:
+        flash("Antraštė per ilga (maks. 100 simbolių).", "error")
+        return redirect(url_for("memes"))
+    if not image.startswith("data:image/"):
+        flash("Nepasirinkai nuotraukos.", "error")
+        return redirect(url_for("memes"))
+    if len(image) > 1_500_000:
+        flash("Nuotrauka per didelė (maks. ~1,5 MB).", "error")
+        return redirect(url_for("memes"))
+    db = get_db()
+    try:
+        db.execute(
+            "INSERT INTO memes (user_id, title, image, created_at) VALUES (?, ?, ?, ?)",
+            (session["user_id"], title, image, now_str()),
+        )
+        db.commit()
+    finally:
+        db.close()
+    flash("Meme įkelta!", "success")
+    return redirect(url_for("memes"))
+
+
+@app.post("/memes/<int:meme_id>/vote")
+@login_required
+def meme_vote(meme_id):
+    db = get_db()
+    try:
+        meme = db.execute("SELECT id FROM memes WHERE id = ?", (meme_id,)).fetchone()
+        if not meme:
+            flash("Meme nerasta.", "error")
+            return redirect(url_for("memes"))
+        existing = db.execute(
+            "SELECT id, vote FROM meme_votes WHERE meme_id = ? AND user_id = ?",
+            (meme_id, session["user_id"]),
+        ).fetchone()
+        new_vote = int(request.form.get("vote") or 1)
+        if new_vote not in (1, -1):
+            new_vote = 1
+        if existing:
+            if existing["vote"] == new_vote:
+                db.execute("DELETE FROM meme_votes WHERE id = ?", (existing["id"],))
+            else:
+                db.execute(
+                    "UPDATE meme_votes SET vote = ? WHERE id = ?",
+                    (new_vote, existing["id"]),
+                )
+        else:
+            db.execute(
+                "INSERT INTO meme_votes (meme_id, user_id, vote) VALUES (?, ?, ?)",
+                (meme_id, session["user_id"], new_vote),
+            )
+        db.commit()
+    finally:
+        db.close()
+    return redirect(url_for("memes"))
+
+
+@app.post("/memes/<int:meme_id>/comment")
+@login_required
+def meme_comment(meme_id):
+    body = (request.form.get("body") or "").strip()
+    if not body:
+        flash("Komentaras tuščias.", "error")
+        return redirect(url_for("memes"))
+    if len(body) > 1000:
+        flash("Komentaras per ilgas (maks. 1000 simbolių).", "error")
+        return redirect(url_for("memes"))
+    db = get_db()
+    try:
+        meme = db.execute("SELECT id FROM memes WHERE id = ?", (meme_id,)).fetchone()
+        if not meme:
+            flash("Meme nerasta.", "error")
+            return redirect(url_for("memes"))
+        db.execute(
+            "INSERT INTO meme_comments (meme_id, user_id, body, created_at) VALUES (?, ?, ?, ?)",
+            (meme_id, session["user_id"], body, now_str()),
+        )
+        db.commit()
+    finally:
+        db.close()
+    return redirect(url_for("memes"))
+
+
+@app.post("/memes/<int:meme_id>/delete")
+@login_required
+def meme_delete(meme_id):
+    db = get_db()
+    try:
+        meme = db.execute(
+            "SELECT id, user_id FROM memes WHERE id = ?", (meme_id,)
+        ).fetchone()
+        if not meme:
+            flash("Meme nerasta.", "error")
+            return redirect(url_for("memes"))
+        user = current_user()
+        if meme["user_id"] != session["user_id"] and not (user and user["is_admin"]):
+            flash("Gali trinti tik savo memes.", "error")
+            return redirect(url_for("memes"))
+        db.execute("DELETE FROM memes WHERE id = ?", (meme_id,))
+        db.commit()
+    finally:
+        db.close()
+    flash("Meme ištrinta.", "success")
+    return redirect(url_for("memes"))
+
+
 # --------------------------------------------------------------------- paleidimas
 def seed_admin():
     username = os.getenv("ADMIN_USERNAME", "").strip()

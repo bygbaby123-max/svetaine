@@ -121,6 +121,35 @@ CREATE TABLE IF NOT EXISTS logins (
     created_at TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS memes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    image TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS meme_votes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    meme_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    vote INTEGER NOT NULL,
+    UNIQUE (meme_id, user_id),
+    FOREIGN KEY (meme_id) REFERENCES memes(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS meme_comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    meme_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (meme_id) REFERENCES memes(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 """
 
 PG_USERS_DDL = """
@@ -146,6 +175,36 @@ CREATE TABLE IF NOT EXISTS logins (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     ip TEXT,
     user_agent TEXT,
+    created_at TEXT NOT NULL
+)
+"""
+
+PG_MEMES_DDL = """
+CREATE TABLE IF NOT EXISTS memes (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    image TEXT NOT NULL,
+    created_at TEXT NOT NULL
+)
+"""
+
+PG_MEME_VOTES_DDL = """
+CREATE TABLE IF NOT EXISTS meme_votes (
+    id SERIAL PRIMARY KEY,
+    meme_id INTEGER NOT NULL REFERENCES memes(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    vote INTEGER NOT NULL,
+    UNIQUE (meme_id, user_id)
+)
+"""
+
+PG_MEME_COMMENTS_DDL = """
+CREATE TABLE IF NOT EXISTS meme_comments (
+    id SERIAL PRIMARY KEY,
+    meme_id INTEGER NOT NULL REFERENCES memes(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    body TEXT NOT NULL,
     created_at TEXT NOT NULL
 )
 """
@@ -176,6 +235,9 @@ def init_db():
         if conn.pg:
             conn.execute(PG_USERS_DDL)
             conn.execute(PG_LOGINS_DDL)
+            conn.execute(PG_MEMES_DDL)
+            conn.execute(PG_MEME_VOTES_DDL)
+            conn.execute(PG_MEME_COMMENTS_DDL)
         else:
             conn.executescript(SQLITE_SCHEMA)
         _add_missing_columns(conn)
