@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ game['title'] }} · Žaidimai{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>{{ game['icon'] }} {{ game['title'] }}</h1>
+  <p class="lead">{{ game['desc'] }}</p>
+</section>
+
+<section class="card game-box">
+  <p class="game-rules">{{ game['rules'] }}</p>
+
+  <div class="game-toolbar">
+    <button class="btn" id="game-start" type="button">▶️ Pradėti</button>
+    <span class="hint" id="game-score">Rezultatas: 0</span>
+    <span class="hint game-status" id="game-status"></span>
+  </div>
+
+  <div id="game-root" data-game="{{ key }}"></div>
+
+  {% if not user %}
+  <p class="hint"><a href="{{ url_for('login') }}">Prisijungti</a>, kad galėtum įrašyti rezultatą į lentelę.</p>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('game_score', name=key) }}" id="score-form" hidden>
+    <input type="hidden" name="score" id="score-input" value="0">
+  </form>
+</section>
+
+<section class="card">
+  <h2>🏆 Rezultatų lentelė</h2>
+  <p class="hint">
+    {% if game['higher'] %}Kuo daugiau taškų, tuo geriau.{% else %}Mažiausi rezultatai – geriau ({{ game['unit'] }}).{% endif %}
+    {% if my_best is not none %} Tavo geriausias: <b>{{ my_best }}</b> {{ game['unit'] }}.{% endif %}
+  </p>
+  <table class="lb-table">
+    <thead>
+      <tr><th>#</th><th>Vartotojas</th><th>Rezultatas</th><th>Data</th></tr>
+    </thead>
+    <tbody id="lb-body">
+      {% for r in rows %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ r['username'] }}</td>
+        <td><b>{{ r['score'] }}</b> {{ game['unit'] }}</td>
+        <td class="meme-date">{{ r['created_at'] }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="hint">Dar nėra rezultatų – pirmas įrašys savo!</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<p><a class="mini" href="{{ url_for('games') }}">← Atgal į žaidimus</a></p>
+
+<script src="{{ url_for('static', filename='games.js') }}"></script>
+<script>
+  window.GAME_SCORE_URL = {{ url_for('game_score', name=key) | tojson }};
+  window.GAME_LOGGED_IN = {{ 'true' if user else 'false' }};
+</script>
+{% endblock %}

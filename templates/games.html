@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Žaidimai · Mano svetainė{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>Žaidimai</h1>
+  <p class="lead">Rinkis žaidimą, žaisk ir kiekvieną rezultatą įrašyk į rezultatų lentelę. Rezultatai matomi visiems!</p>
+</section>
+
+<section class="game-grid">
+  {% for key, g in games.items() %}
+  <a class="card game-card" href="{{ url_for('game', name=key) }}">
+    <span class="game-icon">{{ g['icon'] }}</span>
+    <h3>{{ g['title'] }}</h3>
+    <p class="hint">{{ g['desc'] }}</p>
+    <p class="game-best">
+      {% if best.get(key) is not none %}
+        🏆 Rekordas: <b>{{ best[key] }}</b> {{ g['unit'] }}
+        {% if not g['higher'] %}<span class="hint">(mažiau geriau)</span>{% endif %}
+      {% else %}
+        <span class="hint">Dar nėra rezultatų – būk pirmas!</span>
+      {% endif %}
+    </p>
+    <span class="btn btn-ghost">Žaisti →</span>
+  </a>
+  {% endfor %}
+</section>
+{% endblock %}
