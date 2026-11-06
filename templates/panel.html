@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Panelė · {{ target['username'] }}{% endblock %}
+{% block title %}Profilis · {{ target['username'] }}{% endblock %}
 
 {% block content %}
 <div class="auth-box wide">
-  <h1>{% if is_owner %}Mano panelė{% else %}{{ target['username'] }} paskyra{% endif %}</h1>
+  <h1>{% if is_owner %}Mano profilis{% else %}{{ target['username'] }} paskyra{% endif %}</h1>
   {% if not is_owner %}
     <p class="muted">Peržiūri kito vartotojo viešą paskyrą (pagal nuorodą iš laiško).</p>
   {% endif %}

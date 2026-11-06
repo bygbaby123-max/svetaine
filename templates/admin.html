@@ -49,7 +49,7 @@ bet negali trinti vartotojų ar tvarkyti co-owner'ių.</div>
       <td>{{ u['login_count'] }}</td>
       <td class="actions">
         {% if u['panel_token'] %}
-          <a class="mini" href="{{ url_for('my_panel', token=u['panel_token']) }}">Panelė</a>
+          <a class="mini" href="{{ url_for('my_panel', token=u['panel_token']) }}">Profilis</a>
         {% endif %}
         {% if is_owner and u['id'] != user['id'] and not u['is_admin'] %}
           {% if u['is_coowner'] %}

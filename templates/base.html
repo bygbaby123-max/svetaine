@@ -11,7 +11,7 @@
   <a class="brand" href="{{ url_for('index') }}">ManoSvetainė</a>
   <div class="links">
     {% if user %}
-      <a href="{{ url_for('my_panel', token=user['panel_token']) }}">Mano panelė</a>
+      <a href="{{ url_for('my_panel', token=user['panel_token']) }}">Mano profilis</a>
       {% if is_staff %}
         <a href="{{ url_for('admin') }}" class="admin-link">Admin panel</a>
       {% endif %}
