@@ -110,7 +110,9 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TEXT NOT NULL,
     last_login_at TEXT,
     last_login_ip TEXT,
-    login_count INTEGER NOT NULL DEFAULT 0
+    login_count INTEGER NOT NULL DEFAULT 0,
+    coins INTEGER NOT NULL DEFAULT 0,
+    last_bonus_date TEXT
 );
 
 CREATE TABLE IF NOT EXISTS logins (
@@ -177,6 +179,45 @@ CREATE TABLE IF NOT EXISTS game_scores (
     score INTEGER NOT NULL,
     created_at TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS accessories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL,
+    price INTEGER NOT NULL,
+    emoji TEXT,
+    image TEXT,
+    css TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS user_accessories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    accessory_id INTEGER NOT NULL,
+    equipped INTEGER NOT NULL DEFAULT 0,
+    bought_at TEXT NOT NULL,
+    UNIQUE (user_id, accessory_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (accessory_id) REFERENCES accessories(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS coin_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    amount INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS meta (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT UNIQUE NOT NULL,
+    value TEXT NOT NULL
 );
 """
 
@@ -267,6 +308,50 @@ CREATE TABLE IF NOT EXISTS game_scores (
 )
 """
 
+PG_ACCESSORIES_DDL = """
+CREATE TABLE IF NOT EXISTS accessories (
+    id SERIAL PRIMARY KEY,
+    key TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL,
+    price INTEGER NOT NULL,
+    emoji TEXT,
+    image TEXT,
+    css TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+)
+"""
+
+PG_USER_ACCESSORIES_DDL = """
+CREATE TABLE IF NOT EXISTS user_accessories (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    accessory_id INTEGER NOT NULL REFERENCES accessories(id) ON DELETE CASCADE,
+    equipped INTEGER NOT NULL DEFAULT 0,
+    bought_at TEXT NOT NULL,
+    UNIQUE (user_id, accessory_id)
+)
+"""
+
+PG_COIN_LOG_DDL = """
+CREATE TABLE IF NOT EXISTS coin_log (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    amount INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    created_at TEXT NOT NULL
+)
+"""
+
+PG_META_DDL = """
+CREATE TABLE IF NOT EXISTS meta (
+    id SERIAL PRIMARY KEY,
+    key TEXT UNIQUE NOT NULL,
+    value TEXT NOT NULL
+)
+"""
+
 
 def _add_missing_columns(conn):
     """Prideda naujus stulpelius į jau esančias lenteles (SQLite ir PostgreSQL)."""
@@ -281,7 +366,11 @@ def _add_missing_columns(conn):
         for r in conn.execute("PRAGMA table_info(users)").fetchall():
             have.add(r["name"])
 
-    for column, ddl in (("is_coowner", "is_coowner INTEGER NOT NULL DEFAULT 0"),):
+    for column, ddl in (
+        ("is_coowner", "is_coowner INTEGER NOT NULL DEFAULT 0"),
+        ("coins", "coins INTEGER NOT NULL DEFAULT 0"),
+        ("last_bonus_date", "last_bonus_date TEXT"),
+    ):
         if column not in have:
             conn.execute(f"ALTER TABLE users ADD COLUMN {ddl}")
     conn.commit()
@@ -299,6 +388,10 @@ def init_db():
             conn.execute(PG_CHAT_DDL)
             conn.execute(PG_DIRECT_DDL)
             conn.execute(PG_GAME_SCORES_DDL)
+            conn.execute(PG_ACCESSORIES_DDL)
+            conn.execute(PG_USER_ACCESSORIES_DDL)
+            conn.execute(PG_COIN_LOG_DDL)
+            conn.execute(PG_META_DDL)
         else:
             conn.executescript(SQLITE_SCHEMA)
         _add_missing_columns(conn)

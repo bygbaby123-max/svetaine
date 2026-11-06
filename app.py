@@ -16,6 +16,7 @@ from functools import wraps
 
 from flask import (Flask, abort, flash, jsonify, redirect,
                    render_template, request, session, url_for)
+from markupsafe import Markup
 from werkzeug.security import check_password_hash, generate_password_hash
 
 try:
@@ -43,6 +44,13 @@ USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{3,20}$")
 
 
 # ------------------------------------------------------------------ pagalbinukai
+# Bolt Coins (valiuta parduotuvei)
+COINS_REGISTER = 50    # už registraciją
+COINS_DAILY = 15       # kasdienė dovanėlė
+COINS_PLAY = 5         # už žaidimą
+COINS_RECORD = 25      # už asmens rekordą žaidime
+
+
 def now_str():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -88,6 +96,69 @@ def ensure_panel_token(user):
     db.commit()
     db.close()
     return token
+
+
+def add_coins(db, user_id, amount, reason):
+    """Prideda Bolt Coins ir įrašo į istoriją. Grąžina naują balansą."""
+    db.execute("UPDATE users SET coins = coins + ? WHERE id = ?", (amount, user_id))
+    db.execute(
+        "INSERT INTO coin_log (user_id, amount, reason, created_at) VALUES (?, ?, ?, ?)",
+        (user_id, amount, reason, now_str()),
+    )
+    row = db.execute("SELECT coins FROM users WHERE id = ?", (user_id,)).fetchone()
+    return row["coins"] if row else 0
+
+
+def daily_bonus(user_id):
+    """Kasdienė dovanėlė: +15 Bolt Coins kartą per dieną. Grąžina dovanėlę arba 0."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    db = get_db()
+    try:
+        row = db.execute(
+            "SELECT last_bonus_date FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+        if not row or row["last_bonus_date"] == today:
+            return 0
+        add_coins(db, user_id, COINS_DAILY, "Kasdienė dovanėlė")
+        db.execute(
+            "UPDATE users SET last_bonus_date = ? WHERE id = ?", (today, user_id)
+        )
+        db.commit()
+        return COINS_DAILY
+    finally:
+        db.close()
+
+
+def equipped_map():
+    """{vartotojo_id: aksesuaras} – kas ką dabar dėvi (visiems matoma)."""
+    db = get_db()
+    try:
+        rows = db.execute(
+            "SELECT ua.user_id, a.id AS acc_id, a.name, a.emoji, a.image, a.css"
+            " FROM user_accessories ua"
+            " JOIN accessories a ON a.id = ua.accessory_id"
+            " WHERE ua.equipped = 1 AND a.active = 1"
+        ).fetchall()
+        return {r["user_id"]: dict(r) for r in rows}
+    finally:
+        db.close()
+
+
+def make_acc_html(emap):
+    """Gamina funkciją, kuri prie vardo gražina aksesuarą (emoji arba nuotrauką)."""
+    def acc_html(user_id):
+        a = emap.get(user_id)
+        if not a:
+            return ""
+        name = str(a.get("name") or "").replace('"', "'")
+        if a.get("image"):
+            return Markup(
+                f'<img class="acc-img" src="{a["image"]}" alt="{name}" title="{name}">'
+            )
+        emoji = a.get("emoji") or "✨"
+        css = "acc-badge " + (a.get("css") or "")
+        return Markup(f'<span class="{css.strip()}" title="{name}">{emoji}</span>')
+    return acc_html
 
 
 def send_data_email(user, action, heading):
@@ -156,13 +227,24 @@ admin_required = owner_required
 @app.context_processor
 def inject_globals():
     u = current_user()
+    if u:
+        bonus = daily_bonus(u["id"])
+        if bonus:
+            flash(f"🎁 Gavai {bonus} Bolt Coins kasdienę dovanėlę!", "success")
+            u = current_user()  # perskaitome atnaujintą balansą
     unread = unread_count() if u else 0
+    emap = equipped_map()
     return {
         "user": u,
         "google_client_id": GOOGLE_CLIENT_ID,
         "is_owner": bool(u and u["is_admin"]),
         "is_staff": bool(u and (u["is_admin"] or u["is_coowner"])),
         "unread": unread,
+        "coins": (u["coins"] if u else 0),
+        "acc_html": make_acc_html(emap),
+        "coins_daily": COINS_DAILY,
+        "coins_play": COINS_PLAY,
+        "coins_record": COINS_RECORD,
     }
 
 
@@ -223,8 +305,9 @@ def register():
             (username, email, generate_password_hash(password), birth_year,
              secrets.token_urlsafe(32), now_str()),
         )
-        db.commit()
         new_id = cur.lastrowid
+        add_coins(db, new_id, COINS_REGISTER, "Registracijos dovanėlė")
+        db.commit()
     finally:
         db.close()
 
@@ -234,7 +317,7 @@ def register():
     sent = send_data_email(user, "registracijos", "Registracija sėkminga")
     if not sent:
         warn_if_no_smtp()
-    flash("Sveikinimai! Paskyra sukurta ir prisijungta.", "success")
+    flash(f"Sveikinimai! Paskyra sukurta ir prisijungta. Gavai +{COINS_REGISTER} Bolt Coins! 🪙", "success")
     return redirect(url_for("index"))
 
 
@@ -448,7 +531,7 @@ def memes():
     try:
         rows = db.execute(MEME_SQL + " ORDER BY m.id DESC LIMIT 100").fetchall()
         comment_rows = db.execute(
-            """SELECT c.id, c.meme_id, c.body, c.created_at, u.username
+            """SELECT c.id, c.meme_id, c.user_id, c.body, c.created_at, u.username
                FROM meme_comments c JOIN users u ON u.id = c.user_id
                ORDER BY c.id ASC"""
         ).fetchall()
@@ -916,7 +999,7 @@ def _game_top_scores(name):
     db = get_db()
     try:
         rows = db.execute(
-            "SELECT gs.score, gs.created_at, u.username"
+            "SELECT gs.score, gs.created_at, u.username, u.id AS user_id"
             " FROM game_scores gs JOIN users u ON u.id = gs.user_id"
             " WHERE gs.game = ?"
             f" ORDER BY gs.score {order}, gs.id ASC LIMIT 10",
@@ -987,15 +1070,183 @@ def game_score(name):
         return redirect(url_for("game", name=name))
     db = get_db()
     try:
+        uid = session["user_id"]
+        # ar pagerino asmeninį rekordą?
+        prev = db.execute(
+            "SELECT score FROM game_scores WHERE user_id = ? AND game = ?",
+            (uid, name),
+        ).fetchall()
+        best = None
+        if prev:
+            vals = [r["score"] for r in prev]
+            best = max(vals) if g["higher"] else min(vals)
+        record = best is None or (score > best if g["higher"] else score < best)
+        earned = COINS_RECORD if record else COINS_PLAY
+        add_coins(db, uid, earned,
+                  f"Žaidimas: {g['title']}" + (" – asmeninis rekordas!" if record else ""))
         db.execute(
             "INSERT INTO game_scores (user_id, game, score, created_at) VALUES (?, ?, ?, ?)",
-            (session["user_id"], name, score, now_str()),
+            (uid, name, score, now_str()),
         )
         db.commit()
     finally:
         db.close()
-    flash(f"Rezultatas įrašytas: {score} {g['unit']}! 🏆", "success")
+    flash(f"Rezultatas įrašytas: {score} {g['unit']}! +{earned} Bolt Coins 🪙", "success")
     return redirect(url_for("game", name=name))
+
+
+# ------------------------------------------------------------------ parduotuvė
+# Aksesuarai, kuriuos galima nusipirkti už Bolt Coins.
+# image kelias prasideda nuo /static/... (kai atsiųsi papuošimus – įdėsi į static/shop/).
+SHOP_ITEMS = [
+    {
+        "key": "rainbow_crown",
+        "name": "Vaivorykštės vainikas",
+        "description": "Animuotas vainikas – spalvos nuolat keičiasi ir mirguliuoja! 👑✨",
+        "price": 25,
+        "emoji": "👑",
+        "image": "",
+        "css": "acc-rainbow",
+    },
+]
+
+
+def seed_shop():
+    """Sukuria parduotuvės prekes ir vienkartinę paleidimo dovanėlę (+100)."""
+    db = get_db()
+    try:
+        for it in SHOP_ITEMS:
+            if not db.execute(
+                "SELECT 1 FROM accessories WHERE key = ?", (it["key"],)
+            ).fetchone():
+                db.execute(
+                    "INSERT INTO accessories (key, name, description, price, emoji,"
+                    " image, css, active, created_at)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)",
+                    (it["key"], it["name"], it["description"], it["price"],
+                     it["emoji"], it["image"], it["css"], now_str()),
+                )
+        # vienkartinė dovanėlė visiems jau esantiems vartotojams
+        if not db.execute(
+            "SELECT 1 FROM meta WHERE key = ?", ("launch_bonus_v1",)
+        ).fetchone():
+            rows = db.execute("SELECT id FROM users").fetchall()
+            for r in rows:
+                add_coins(db, r["id"], 100, "Paleidimo dovanėlė")
+            db.execute(
+                "INSERT INTO meta (key, value) VALUES (?, ?)",
+                ("launch_bonus_v1", "1"),
+            )
+            if rows:
+                print(f"[SHOP] Paleidimo dovanėlė +100 Bolt Coins: {len(rows)} vartotojui(-ams)")
+        db.commit()
+    finally:
+        db.close()
+
+
+@app.route("/shop")
+def shop():
+    owned = {}
+    db = get_db()
+    try:
+        items = db.execute(
+            "SELECT * FROM accessories WHERE active = 1 ORDER BY price, id"
+        ).fetchall()
+        if session.get("user_id"):
+            for r in db.execute(
+                "SELECT accessory_id, equipped FROM user_accessories WHERE user_id = ?",
+                (session["user_id"],),
+            ).fetchall():
+                owned[r["accessory_id"]] = bool(r["equipped"])
+    finally:
+        db.close()
+    return render_template("shop.html", items=items, owned=owned)
+
+
+@app.post("/shop/buy/<int:item_id>")
+@login_required
+def shop_buy(item_id):
+    uid = session["user_id"]
+    db = get_db()
+    try:
+        item = db.execute(
+            "SELECT * FROM accessories WHERE id = ? AND active = 1", (item_id,)
+        ).fetchone()
+        if not item:
+            abort(404)
+        if db.execute(
+            "SELECT 1 FROM user_accessories WHERE user_id = ? AND accessory_id = ?",
+            (uid, item_id),
+        ).fetchone():
+            flash("Šį aksesuarą jau turi!", "info")
+            return redirect(url_for("shop"))
+        row = db.execute("SELECT coins FROM users WHERE id = ?", (uid,)).fetchone()
+        if not row or row["coins"] < item["price"]:
+            flash(f"Neturi pakankamai Bolt Coins (reikia {item['price']} 🪙). "
+                  "Uždirbk žaisdamas žaidimus!", "error")
+            return redirect(url_for("shop"))
+        db.execute(
+            "UPDATE users SET coins = coins - ? WHERE id = ?", (item["price"], uid)
+        )
+        db.execute(
+            "INSERT INTO user_accessories (user_id, accessory_id, equipped, bought_at)"
+            " VALUES (?, ?, 1, ?)",
+            (uid, item_id, now_str()),
+        )
+        db.commit()
+    finally:
+        db.close()
+    flash(f"Nupirkta! {item['name']} 👌 Dabar jis automatiškai dėvimas.", "success")
+    return redirect(url_for("shop"))
+
+
+@app.post("/shop/equip/<int:item_id>")
+@login_required
+def shop_equip(item_id):
+    uid = session["user_id"]
+    db = get_db()
+    try:
+        if not db.execute(
+            "SELECT 1 FROM accessories WHERE id = ? AND active = 1", (item_id,)
+        ).fetchone():
+            abort(404)
+        if not db.execute(
+            "SELECT 1 FROM user_accessories WHERE user_id = ? AND accessory_id = ?",
+            (uid, item_id),
+        ).fetchone():
+            flash("Šio aksesuaro neturi – pirmiausia jį nupirk.", "error")
+            return redirect(url_for("shop"))
+        db.execute(
+            "UPDATE user_accessories SET equipped = 0 WHERE user_id = ?", (uid,)
+        )
+        db.execute(
+            "UPDATE user_accessories SET equipped = 1"
+            " WHERE user_id = ? AND accessory_id = ?",
+            (uid, item_id),
+        )
+        db.commit()
+    finally:
+        db.close()
+    flash("Aksesuaras uždėtas! ✨", "success")
+    return redirect(url_for("shop"))
+
+
+@app.post("/shop/unequip/<int:item_id>")
+@login_required
+def shop_unequip(item_id):
+    uid = session["user_id"]
+    db = get_db()
+    try:
+        db.execute(
+            "UPDATE user_accessories SET equipped = 0"
+            " WHERE user_id = ? AND accessory_id = ?",
+            (uid, item_id),
+        )
+        db.commit()
+    finally:
+        db.close()
+    flash("Aksesuaras nuimtas.", "success")
+    return redirect(url_for("shop"))
 
 
 # --------------------------------------------------------------------- paleidimas
@@ -1026,6 +1277,7 @@ def seed_admin():
 
 init_db()
 seed_admin()
+seed_shop()
 
 
 if __name__ == "__main__":
