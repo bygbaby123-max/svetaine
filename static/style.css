@@ -958,3 +958,55 @@ td form { display: inline; margin-left: 6px; }
 }
 @keyframes acc-rainbow-move { to { background-position: 300% 0; } }
 .shop-emoji.acc-rainbow { font-size: 52px; filter: drop-shadow(0 0 14px rgba(167, 139, 250, .6)); }
+
+/* parduotuvės prekių tipas */
+.shop-slot {
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 999px;
+  letter-spacing: .3px;
+}
+.slot-name { background: rgba(56, 189, 248, .15); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, .35); }
+.slot-frame { background: rgba(167, 139, 250, .15); color: #c4b5fd; border: 1px solid rgba(167, 139, 250, .35); }
+.shop-img-frame { background: #0b0d14; border-radius: 50%; padding: 6px; }
+
+/* profilis: avataras + rėmelis */
+.profile-head { display: flex; align-items: center; gap: 18px; margin-bottom: 14px; }
+.profile-head h1 { margin: 0 0 4px; }
+.profile-head .muted { margin: 0; }
+.profile-avatar {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  flex: 0 0 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.avatar-letter {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  color: #fff;
+  font-size: 34px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.profile-frame {
+  position: absolute;
+  inset: -8px;
+  width: calc(100% + 16px);
+  height: calc(100% + 16px);
+  object-fit: contain;
+  pointer-events: none;
+  animation: frame-glow 3s ease-in-out infinite;
+}
+@keyframes frame-glow {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(255, 255, 255, .25)); }
+  50% { filter: drop-shadow(0 0 10px rgba(167, 139, 250, .6)); }
+}
