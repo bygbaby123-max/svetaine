@@ -15,6 +15,7 @@
       <a href="{{ url_for('chat') }}">Chatas</a>
       <a href="{{ url_for('messages_inbox') }}">Žinutės{% if unread %} <span class="badge">{{ unread }}</span>{% endif %}</a>
       <a href="{{ url_for('games') }}">Žaidimai</a>
+      <a href="{{ url_for('tasks') }}">🎯 Užduotys{% if tasks_badge %} <span class="badge">{{ tasks_badge }}</span>{% endif %}</a>
       <a href="{{ url_for('shop') }}">🛒 Parduotuvė <span class="coins-chip">🪙 {{ coins }}</span></a>
       <a href="{{ url_for('my_panel', token=user['panel_token']) }}">Mano profilis</a>
       {% if is_staff %}

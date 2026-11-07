@@ -58,5 +58,6 @@
 <script>
   window.GAME_SCORE_URL = {{ url_for('game_score', name=key) | tojson }};
   window.GAME_LOGGED_IN = {{ 'true' if user else 'false' }};
+  window.GAME_PING_URL = {{ url_for('games_ping') | tojson }};
 </script>
 {% endblock %}

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Užduotys · Mano svetainė{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>🎯 Užduotys</h1>
+  <p class="lead">Atlik kasdienes užduotis ir gauk <b>Bolt Coins</b>! Užduotys atsinaujina kasdien vidurnaktį, o už streak'ą laukia dar didesni apdovanojimai.</p>
+</section>
+
+<section class="card shop-balance">
+  <div class="balance-line">Tavo balansas: <b class="coins-big">🪙 {{ balance }} Bolt Coins</b></div>
+  <div class="balance-line">🔥 Dienų iš eilės: <b>{{ streak }}</b></div>
+  <p class="hint">Atlik bent vieną užduotį kiekvieną dieną – tęsk streak'ą! Už pirmą atsiimtą užduotį kiekvieną dieną gauni bonusą: <b>streak × 5 🪙</b> (1 diena +5, 2 dienos +10, ... iki +50 🪙).</p>
+</section>
+
+<h2>Kasdienės užduotys</h2>
+<section class="game-grid shop-grid">
+  {% for t in daily %}
+  <div class="card shop-card task-card {% if t['claimed'] %}task-claimed{% endif %} {% if t['done'] and not t['claimed'] %}task-ready{% endif %}">
+    <span class="task-icon">{{ t['icon'] }}</span>
+    <h3>{{ t['name'] }}</h3>
+    <p class="hint">{{ t['desc'] }}</p>
+    <div class="task-progress" title="{{ t['progress'] }}/{{ t['target'] }}">
+      <div class="task-bar" style="width: {{ ((t['progress'] * 100) // t['target']) }}%"></div>
+    </div>
+    <p class="shop-price">
+      {% if t['unit'] == 'min' %}
+        ⏱ {{ '%.1f'|format(t['progress'] / 60)|replace('.', ',') }} / {{ (t['target'] / 60)|int }} min
+      {% else %}
+        ✔ {{ t['progress'] }} / {{ t['target'] }}
+      {% endif %}
+      · 🪙 {{ t['reward'] }}
+    </p>
+    {% if t['claimed'] %}
+      <button class="btn btn-ghost" type="button" disabled>✓ Atsiimta</button>
+    {% elif t['done'] %}
+      <form method="post" action="{{ url_for('task_claim_route', key=t['key']) }}">
+        <button class="btn btn-success" type="submit">Atsiimti +{{ t['reward'] }} 🪙</button>
+      </form>
+    {% else %}
+      <button class="btn btn-disabled" type="button" disabled>Atlikta {{ ((t['progress'] * 100) // t['target']) }}%</button>
+    {% endif %}
+  </div>
+  {% endfor %}
+</section>
+
+<h2>🔥 Streak apdovanojimai</h2>
+<p class="hint">Šie apdovanojimai vienkartiniai – juos atsiimi kai streak'as pasiekia reikiamą dienų skaičių.</p>
+<section class="game-grid shop-grid">
+  {% for t in streak_tasks %}
+  <div class="card shop-card task-card {% if t['claimed'] %}task-claimed{% endif %} {% if t['done'] and not t['claimed'] %}task-ready{% endif %}">
+    <span class="task-icon">{{ t['icon'] }}</span>
+    <h3>{{ t['name'] }}</h3>
+    <p class="hint">{{ t['desc'] }}</p>
+    <div class="task-progress" title="{{ t['progress'] }}/{{ t['target'] }}">
+      <div class="task-bar" style="width: {{ ((t['progress'] * 100) // t['target']) }}%"></div>
+    </div>
+    <p class="shop-price">🔥 {{ t['progress'] }} / {{ t['target'] }} dienų · 🪙 {{ t['reward'] }}</p>
+    {% if t['claimed'] %}
+      <button class="btn btn-ghost" type="button" disabled>✓ Atsiimta</button>
+    {% elif t['done'] %}
+      <form method="post" action="{{ url_for('task_claim_route', key=t['key']) }}">
+        <button class="btn btn-success" type="submit">Atsiimti +{{ t['reward'] }} 🪙</button>
+      </form>
+    {% else %}
+      <button class="btn btn-disabled" type="button" disabled>Trūksta {{ t['target'] - t['progress'] }} dienų</button>
+    {% endif %}
+  </div>
+  {% endfor %}
+</section>
+
+<section class="card">
+  <h3>Kaip tai veikia?</h3>
+  <p class="hint"><b>1.</b> Atlik užduotį – jos progresas automatiškai auga (žinutės, mem'ai, balsavimas, žaidimai).</p>
+  <p class="hint"><b>2.</b> Kai užduotis atlikta, paspausk <b>„Atsiimti"</b> ir gauk Bolt Coins. Neatimtos užduotys išnyksta kitą dieną!</p>
+  <p class="hint"><b>3.</b> 🔥 <b>Streak</b> – dienos iš eilės, kai atėmei bent vieną užduotį. Prieštarauk dienai be užduočių ir streak'as prasidės iš naujo.</p>
+  <p class="hint"><b>4.</b> Žaidimų laikas skaičiuojamas visų žaidimų kartu – užtrukai 10 minučių bet kuriuose žaidimuose? Gauk užduotį! ⏱</p>
+</section>
+{% endblock %}
