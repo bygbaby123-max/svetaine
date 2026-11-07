@@ -44,6 +44,10 @@
   {% block content %}{% endblock %}
 </main>
 
-<footer class="footer">Sukurta su Python (Flask)</footer>
+<footer class="footer">
+  Sukurta su Python (Flask) ·
+  <a href="{{ url_for('static', filename='privatumo_politika.pdf') }}">Privatumo politika</a> ·
+  <a href="{{ url_for('static', filename='naudojimosi_salygos.pdf') }}">Naudojimosi sąlygos</a>
+</footer>
 </body>
 </html>
