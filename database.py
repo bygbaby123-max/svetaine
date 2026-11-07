@@ -112,7 +112,9 @@ CREATE TABLE IF NOT EXISTS users (
     last_login_ip TEXT,
     login_count INTEGER NOT NULL DEFAULT 0,
     coins INTEGER NOT NULL DEFAULT 0,
-    last_bonus_date TEXT
+    last_bonus_date TEXT,
+    streak INTEGER NOT NULL DEFAULT 0,
+    last_streak_day TEXT
 );
 
 CREATE TABLE IF NOT EXISTS logins (
@@ -220,6 +222,20 @@ CREATE TABLE IF NOT EXISTS meta (
     key TEXT UNIQUE NOT NULL,
     value TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS daily_progress (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    day TEXT NOT NULL,
+    task_key TEXT NOT NULL,
+    progress INTEGER NOT NULL DEFAULT 0,
+    done INTEGER NOT NULL DEFAULT 0,
+    claimed INTEGER NOT NULL DEFAULT 0,
+    data TEXT,
+    updated_at TEXT NOT NULL,
+    UNIQUE (user_id, day, task_key),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 """
 
 PG_USERS_DDL = """
@@ -235,7 +251,11 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TEXT NOT NULL,
     last_login_at TEXT,
     last_login_ip TEXT,
-    login_count INTEGER NOT NULL DEFAULT 0
+    login_count INTEGER NOT NULL DEFAULT 0,
+    coins INTEGER NOT NULL DEFAULT 0,
+    last_bonus_date TEXT,
+    streak INTEGER NOT NULL DEFAULT 0,
+    last_streak_day TEXT
 )
 """
 
@@ -354,6 +374,21 @@ CREATE TABLE IF NOT EXISTS meta (
 )
 """
 
+PG_DAILY_PROGRESS_DDL = """
+CREATE TABLE IF NOT EXISTS daily_progress (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    day TEXT NOT NULL,
+    task_key TEXT NOT NULL,
+    progress INTEGER NOT NULL DEFAULT 0,
+    done INTEGER NOT NULL DEFAULT 0,
+    claimed INTEGER NOT NULL DEFAULT 0,
+    data TEXT,
+    updated_at TEXT NOT NULL,
+    UNIQUE (user_id, day, task_key)
+)
+"""
+
 
 def _add_missing_columns(conn):
     """Prideda naujus stulpelius į jau esančias lenteles (SQLite ir PostgreSQL)."""
@@ -375,6 +410,8 @@ def _add_missing_columns(conn):
         ("is_coowner", "is_coowner INTEGER NOT NULL DEFAULT 0"),
         ("coins", "coins INTEGER NOT NULL DEFAULT 0"),
         ("last_bonus_date", "last_bonus_date TEXT"),
+        ("streak", "streak INTEGER NOT NULL DEFAULT 0"),
+        ("last_streak_day", "last_streak_day TEXT"),
     ):
         if column not in have_columns("users"):
             conn.execute(f"ALTER TABLE users ADD COLUMN {ddl}")
@@ -417,6 +454,7 @@ def init_db():
             conn.execute(PG_USER_ACCESSORIES_DDL)
             conn.execute(PG_COIN_LOG_DDL)
             conn.execute(PG_META_DDL)
+            conn.execute(PG_DAILY_PROGRESS_DDL)
         else:
             conn.executescript(SQLITE_SCHEMA)
         _add_missing_columns(conn)

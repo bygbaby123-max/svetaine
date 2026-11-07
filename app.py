@@ -8,10 +8,11 @@ Paleidimas:
     pip install -r requirements.txt
     python app.py
 """
+import json
 import os
 import re
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 
 from flask import (Flask, abort, flash, jsonify, redirect,
@@ -125,6 +126,290 @@ def daily_bonus(user_id):
         )
         db.commit()
         return COINS_DAILY
+    finally:
+        db.close()
+
+
+# ------------------------------------------------------------------- užduotys
+# Kasdienės užduotys už Bolt Coins (atsinaujina kasdien vidurnaktį).
+# trigger – veiksmas, kuris didina progresą (žr. task_progress / task_play_ping).
+# unit: "n" – vnt. (5/10), "min" – minutės (rodomos kaip 2,5/5 min).
+DAILY_TASKS = [
+    {"key": "chat_5", "icon": "💬", "name": "Parašyk 5 žinutes chat’e",
+     "desc": "Bendrauk su draugais – penkios žinutės chat’e šiandien.",
+     "target": 5, "reward": 10, "trigger": "chat_message", "unit": "n"},
+    {"key": "meme_3", "icon": "📸", "name": "Įkelk 3 meme’s",
+     "desc": "Pasidalink memais su bendruomene – trys šiandien.",
+     "target": 3, "reward": 15, "trigger": "meme_upload", "unit": "n"},
+    {"key": "meme_10", "icon": "🖼️", "name": "Įkelk 10 meme’s",
+     "desc": "Tikras meme meistras – dešimt memų per vieną dieną!",
+     "target": 10, "reward": 40, "trigger": "meme_upload", "unit": "n"},
+    {"key": "vote_5", "icon": "🗳️", "name": "Balsuok už 5 skirtingus meme’s",
+     "desc": "Įvertink penkių skirtingų memų vertą turinį.",
+     "target": 5, "reward": 8, "trigger": "meme_vote", "unit": "n"},
+    {"key": "comment_3", "icon": "✍️", "name": "Palik 3 komentarus meme sienoje",
+     "desc": "Parašyk komentarą prie trijų skirtingų memų.",
+     "target": 3, "reward": 10, "trigger": "meme_comment", "unit": "n"},
+    {"key": "games_5", "icon": "🕹️", "name": "Žaisk 5 skirtingus žaidimus",
+     "desc": "Išbandyk penkis skirtingus žaidimus šiandien.",
+     "target": 5, "reward": 20, "trigger": "game_play", "unit": "n"},
+    {"key": "play_5", "icon": "⏱️", "name": "Žaisk žaidimus 5 minutes",
+     "desc": "Visų žaidimų laikas sumuojamas kartu.",
+     "target": 300, "reward": 10, "trigger": "play_seconds", "unit": "min"},
+    {"key": "play_10", "icon": "⌛", "name": "Žaisk žaidimus 10 minučių",
+     "desc": "Ilgiau žaisk – daugiau Bolt Coins!",
+     "target": 600, "reward": 25, "trigger": "play_seconds", "unit": "min"},
+    {"key": "record_1", "icon": "🏆", "name": "Pagerink asmeninį rekordą",
+     "desc": "Nugalėk savo geriausią rezultatą bet kuriame žaidime.",
+     "target": 1, "reward": 15, "trigger": "record_beat", "unit": "n"},
+]
+
+# Streak (dienos iš eilės) apdovanojimai – vienkartiniai, priklauso nuo users.streak.
+STREAK_TASKS = [
+    {"key": "streak_3", "icon": "🔥", "name": "3 dienos iš eilės",
+     "desc": "Atlik bent vieną užduotį tris dienas iš eilės.",
+     "target": 3, "reward": 30},
+    {"key": "streak_7", "icon": "🔥", "name": "7 dienos iš eilės",
+     "desc": "Savaitė be pertraukos – atlik užduotį kasdien!",
+     "target": 7, "reward": 100},
+    {"key": "streak_14", "icon": "🔥", "name": "14 dienų iš eilės",
+     "desc": "Dvi savaitės iš eilės – tikras svetainės čempionas!",
+     "target": 14, "reward": 250},
+]
+
+TASKS_BY_KEY = {t["key"]: t for t in DAILY_TASKS + STREAK_TASKS}
+STREAK_KEYS = {t["key"] for t in STREAK_TASKS}
+STREAK_BONUS_MAX = 50   # didžiausias kasdienis streak bonusas
+PLAY_PING_MIN = 15      # minimalus tarpas tarp ping'ų (sek.) – apsauga nuo spamo
+PLAY_PING_MAX = 60      # daugiausia sekundžių už vieną ping'ą
+
+
+def _today():
+    return datetime.now().strftime("%Y-%m-%d")
+
+
+def _task_row(db, user_id, day, key, create=True):
+    """Grąžina daily_progress eilutę (sukuria, jei create=True)."""
+    sql = ("SELECT * FROM daily_progress"
+           " WHERE user_id = ? AND day = ? AND task_key = ?")
+    row = db.execute(sql, (user_id, day, key)).fetchone()
+    if row or not create:
+        return row
+    db.execute(
+        "INSERT INTO daily_progress (user_id, day, task_key, progress, done,"
+        " claimed, updated_at) VALUES (?, ?, ?, 0, 0, 0, ?)",
+        (user_id, day, key, now_str()),
+    )
+    return db.execute(sql, (user_id, day, key)).fetchone()
+
+
+def task_progress(user_id, trigger, amount=1, data_item=None):
+    """Didina kasdienių užduočių progresą pagal atliktą veiksmą.
+
+    data_item – kai norima skaičiuoti SKIRTINGUS elementus (meme id,
+    žaidimo raktas): įrašomas į JSON sąrašą, progresas = sąrašo ilgis.
+    """
+    today = _today()
+    changed = False
+    db = get_db()
+    try:
+        for t in DAILY_TASKS:
+            if t["trigger"] != trigger:
+                continue
+            row = _task_row(db, user_id, today, t["key"])
+            if not row or row["claimed"]:
+                continue
+            if data_item is not None:
+                try:
+                    seen = json.loads(row["data"] or "[]")
+                except (ValueError, TypeError):
+                    seen = []
+                if str(data_item) in seen:
+                    continue
+                seen.append(str(data_item))
+                new = min(len(seen), t["target"])
+                if new == (row["progress"] or 0) and row["done"]:
+                    continue
+                db.execute(
+                    "UPDATE daily_progress SET data = ?, progress = ?, done = ?,"
+                    " updated_at = ? WHERE id = ?",
+                    (json.dumps(seen), new, 1 if new >= t["target"] else 0,
+                     now_str(), row["id"]),
+                )
+                changed = True
+            else:
+                new = min((row["progress"] or 0) + amount, t["target"])
+                if new == (row["progress"] or 0):
+                    continue
+                db.execute(
+                    "UPDATE daily_progress SET progress = ?, done = ?, updated_at = ?"
+                    " WHERE id = ?",
+                    (new, 1 if new >= t["target"] else 0, now_str(), row["id"]),
+                )
+                changed = True
+        if changed:
+            db.commit()
+    finally:
+        db.close()
+    return changed
+
+
+def task_play_ping(user_id):
+    """Žaidimo laiko ping'as iš games.js. Grąžina pridėtas sekundes.
+
+    Pirmas ping'as dienoje prideda 30 (klientas siunčia kas 30 sek.),
+    vėlesni – realų laiką nuo paskutinio ping'o (max 60 sek.).
+    """
+    today = _today()
+    now = datetime.now()
+    db = get_db()
+    try:
+        ping = db.execute(
+            "SELECT id, updated_at FROM daily_progress"
+            " WHERE user_id = ? AND day = ? AND task_key = '__ping'",
+            (user_id, today),
+        ).fetchone()
+        add = 0
+        if ping:
+            try:
+                last = datetime.strptime(ping["updated_at"], "%Y-%m-%d %H:%M:%S")
+                elapsed = (now - last).total_seconds()
+            except ValueError:
+                elapsed = 0
+            if elapsed >= PLAY_PING_MIN:
+                add = min(int(elapsed), PLAY_PING_MAX)
+            db.execute(
+                "UPDATE daily_progress SET updated_at = ? WHERE id = ?",
+                (now_str(), ping["id"]),
+            )
+        else:
+            add = 30  # pirmas ping'as po ~30 sek. žaidimo
+            db.execute(
+                "INSERT INTO daily_progress (user_id, day, task_key, progress,"
+                " done, claimed, updated_at) VALUES (?, ?, '__ping', 0, 0, 0, ?)",
+                (user_id, today, now_str()),
+            )
+        if add:
+            for t in DAILY_TASKS:
+                if t["trigger"] != "play_seconds":
+                    continue
+                row = _task_row(db, user_id, today, t["key"])
+                if not row or row["claimed"]:
+                    continue
+                new = min((row["progress"] or 0) + add, t["target"])
+                if new == (row["progress"] or 0):
+                    continue
+                db.execute(
+                    "UPDATE daily_progress SET progress = ?, done = ?, updated_at = ?"
+                    " WHERE id = ?",
+                    (new, 1 if new >= t["target"] else 0, now_str(), row["id"]),
+                )
+        db.commit()
+        return add
+    finally:
+        db.close()
+
+
+def _bump_streak(db, user_id):
+    """Atnaujina streak'ą, kai atsiimama pirmoji šiandienos užduotis.
+
+    Grąžina (streak, bonusas). Bonusas = min(streak * 5, 50).
+    """
+    today = _today()
+    row = db.execute(
+        "SELECT streak, last_streak_day FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+    streak = row["streak"] or 0
+    last = row["last_streak_day"]
+    if last == today:
+        return streak, 0
+    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    streak = streak + 1 if last == yesterday else 1
+    bonus = min(streak * 5, STREAK_BONUS_MAX)
+    db.execute(
+        "UPDATE users SET streak = ?, last_streak_day = ? WHERE id = ?",
+        (streak, today, user_id),
+    )
+    add_coins(db, user_id, bonus, f"🔥 Streak: {streak} diena(-os) iš eilės")
+    return streak, bonus
+
+
+def task_claim(user_id, key):
+    """Atsiima užduoties apdovanojimą. Grąžina (sėkminga, žinutė, kategorija)."""
+    t = TASKS_BY_KEY.get(key)
+    if not t:
+        return False, "Nežinoma užduotis.", "error"
+    today = _today()
+    db = get_db()
+    try:
+        if key in STREAK_KEYS:
+            u = db.execute(
+                "SELECT streak FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+            streak = u["streak"] if u else 0
+            if db.execute(
+                "SELECT 1 FROM daily_progress WHERE user_id = ? AND day = 'streak'"
+                " AND task_key = ?",
+                (user_id, key),
+            ).fetchone():
+                return False, "Šį apdovanojimą jau atsiėmei.", "info"
+            if streak < t["target"]:
+                return False, f"Dar trūksta: streak {streak}/{t['target']}.", "error"
+            db.execute(
+                "INSERT INTO daily_progress (user_id, day, task_key, progress,"
+                " done, claimed, updated_at) VALUES (?, 'streak', ?, ?, 1, 1, ?)",
+                (user_id, key, streak, now_str()),
+            )
+            add_coins(db, user_id, t["reward"], f"Užduotis: {t['name']}")
+            db.commit()
+            return True, f"Gavai +{t['reward']} Bolt Coins už „{t['name']}“! 🪙", "success"
+
+        row = _task_row(db, user_id, today, key, create=False)
+        if not row:
+            return False, "Šiandien šios užduoties dar neatlikai.", "error"
+        if row["claimed"]:
+            return False, "Šią užduotį jau atsiėmei šiandien.", "info"
+        if not row["done"]:
+            return False, "Užduotis dar neatlikta.", "error"
+        db.execute(
+            "UPDATE daily_progress SET claimed = 1 WHERE id = ?", (row["id"],)
+        )
+        add_coins(db, user_id, t["reward"], f"Užduotis: {t['name']}")
+        streak, bonus = _bump_streak(db, user_id)
+        db.commit()
+        msg = f"Gavai +{t['reward']} Bolt Coins už „{t['name']}“! 🪙"
+        if bonus:
+            msg += f" 🔥 Streak: {streak} diena(-os) iš eilės +{bonus} 🪙"
+        return True, msg, "success"
+    finally:
+        db.close()
+
+
+def tasks_claimable(user_id):
+    """Kiek užduočių dabar galima atsiimti (rodoma navigacijoje kaip žymelė)."""
+    today = _today()
+    db = get_db()
+    try:
+        n = db.execute(
+            "SELECT COUNT(*) n FROM daily_progress"
+            " WHERE user_id = ? AND day = ? AND done = 1 AND claimed = 0",
+            (user_id, today),
+        ).fetchone()["n"]
+        u = db.execute(
+            "SELECT streak FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+        streak = u["streak"] if u else 0
+        if streak:
+            got = {
+                r["task_key"] for r in db.execute(
+                    "SELECT task_key FROM daily_progress"
+                    " WHERE user_id = ? AND day = 'streak' AND claimed = 1",
+                    (user_id,),
+                ).fetchall()
+            }
+            n += sum(1 for t in STREAK_TASKS
+                     if streak >= t["target"] and t["key"] not in got)
+        return n
     finally:
         db.close()
 
@@ -267,6 +552,7 @@ def inject_globals():
         "coins_daily": COINS_DAILY,
         "coins_play": COINS_PLAY,
         "coins_record": COINS_RECORD,
+        "tasks_badge": tasks_claimable(u["id"]) if u else 0,
     }
 
 
@@ -602,6 +888,7 @@ def meme_create():
         db.commit()
     finally:
         db.close()
+    task_progress(session["user_id"], "meme_upload", 1)
     flash("Meme įkelta!", "success")
     return redirect(url_for("memes"))
 
@@ -638,6 +925,7 @@ def meme_vote(meme_id):
         db.commit()
     finally:
         db.close()
+    task_progress(session["user_id"], "meme_vote", 1, data_item=meme_id)
     return redirect(url_for("memes"))
 
 
@@ -664,6 +952,7 @@ def meme_comment(meme_id):
         db.commit()
     finally:
         db.close()
+    task_progress(session["user_id"], "meme_comment", 1)
     return redirect(url_for("memes"))
 
 
@@ -728,6 +1017,7 @@ def chat_post():
         db.commit()
     finally:
         db.close()
+    task_progress(session["user_id"], "chat_message", 1)
     return redirect(url_for("chat"))
 
 
@@ -1113,8 +1403,77 @@ def game_score(name):
         db.commit()
     finally:
         db.close()
+    task_progress(uid, "game_play", 1, data_item=name)
+    if record:
+        task_progress(uid, "record_beat", 1)
     flash(f"Rezultatas įrašytas: {score} {g['unit']}! +{earned} Bolt Coins 🪙", "success")
     return redirect(url_for("game", name=name))
+
+
+@app.post("/games/ping")
+@login_required
+def games_ping():
+    """Žaidimo laiko signalas iš games.js (kas 30 sek. žaidžiant)."""
+    added = task_play_ping(session["user_id"])
+    return jsonify(ok=True, added=added)
+
+
+# -------------------------------------------------------------------- užduotys
+@app.route("/tasks")
+@login_required
+def tasks():
+    uid = session["user_id"]
+    today = _today()
+    db = get_db()
+    try:
+        rows = db.execute(
+            "SELECT task_key, progress, done, claimed FROM daily_progress"
+            " WHERE user_id = ? AND day = ?",
+            (uid, today),
+        ).fetchall()
+        got_streak = {
+            r["task_key"] for r in db.execute(
+                "SELECT task_key FROM daily_progress"
+                " WHERE user_id = ? AND day = 'streak'",
+                (uid,),
+            ).fetchall()
+        }
+        u = db.execute(
+            "SELECT streak, coins FROM users WHERE id = ?", (uid,)
+        ).fetchone()
+    finally:
+        db.close()
+    state = {r["task_key"]: dict(r) for r in rows}
+    streak = u["streak"] if u else 0
+    daily = []
+    for t in DAILY_TASKS:
+        st = state.get(t["key"])
+        daily.append({
+            **t,
+            "progress": (st or {}).get("progress", 0) or 0,
+            "done": bool((st or {}).get("done")),
+            "claimed": bool((st or {}).get("claimed")),
+        })
+    streak_list = []
+    for t in STREAK_TASKS:
+        streak_list.append({
+            **t,
+            "progress": min(streak, t["target"]),
+            "done": streak >= t["target"],
+            "claimed": t["key"] in got_streak,
+        })
+    return render_template(
+        "tasks.html", daily=daily, streak_tasks=streak_list,
+        streak=streak, balance=u["coins"] if u else 0,
+    )
+
+
+@app.post("/tasks/claim/<key>")
+@login_required
+def task_claim_route(key):
+    ok, msg, cat = task_claim(session["user_id"], key)
+    flash(msg, cat)
+    return redirect(url_for("tasks"))
 
 
 # ------------------------------------------------------------------ parduotuvė
