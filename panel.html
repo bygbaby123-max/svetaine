@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Profilis · {{ target['username'] }}{% endblock %}
+
+{% block content %}
+<div class="auth-box wide">
+  <div class="profile-head">
+    <div class="profile-avatar">
+      <span class="avatar-letter">{{ target['username'][:1]|upper }}</span>
+      {{ frame_html(target['id']) }}
+    </div>
+    <div>
+      <h1>{% if is_owner %}Mano profilis{% else %}{{ target['username'] }} paskyra{% endif %}</h1>
+      <p class="muted">{{ acc_html(target['id']) }} {{ target['username'] }}</p>
+    </div>
+  </div>
+  {% if not is_owner %}
+    <p class="muted">Peržiūri kito vartotojo viešą paskyrą (pagal nuorodą iš laiško).</p>
+  {% endif %}
+
+  <table class="table">
+    <tr><td>Vartotojo vardas</td><td><b>{{ acc_html(target['id']) }} {{ target['username'] }}</b></td></tr>
+    <tr><td>El. paštas</td><td><b>{{ target['email'] }}</b></td></tr>
+    <tr><td>Gimimo metai</td><td><b>{{ target['birth_year'] or 'Praleista' }}</b></td></tr>
+    <tr><td>Bolt Coins</td><td><b class="coins-big">🪙 {{ target['coins'] }}</b></td></tr>
+    <tr><td>Paskyra sukurta</td><td><b>{{ target['created_at'] }}</b></td></tr>
+    <tr><td>Paskutinis prisijungimas</td><td><b>{{ target['last_login_at'] or '—' }}</b></td></tr>
+    <tr><td>Paskutinis IP</td><td><b>{{ target['last_login_ip'] or '—' }}</b></td></tr>
+    <tr><td>Prisijungimų skaičius</td><td><b>{{ target['login_count'] }}</b></td></tr>
+  </table>
+
+  <div class="shop-balance profile-balance">
+    <div class="balance-line">Tavo aksesuaras prie vardo: <span class="acc-preview">{{ acc_html(target['id']) or '—' }}</span></div>
+    <p class="hint">Aksesuarus gali nusipirkti už Bolt Coins parduotuvėje – jie matomi prie tavo vardo visoje svetainėje, o rėmelis – aplink tavo profilio nuotrauką.</p>
+    <a class="btn" href="{{ url_for('shop') }}">🛒 Eiti į parduotuvę</a>
+  </div>
+
+  <h2>Prisijungimų istorija</h2>
+  {% if logins %}
+  <table class="table">
+    <thead><tr><th>Data ir laikas</th><th>IP</th><th>Įrenginys</th></tr></thead>
+    <tbody>
+      {% for l in logins %}
+      <tr>
+        <td>{{ l['created_at'] }}</td>
+        <td>{{ l['ip'] }}</td>
+        <td class="truncate">{{ l['user_agent'] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">Prisijungimų dar nėra.</p>
+  {% endif %}
+
+  {% if is_owner %}
+    <div class="form-actions">
+      <a class="btn btn-ghost" href="{{ url_for('index') }}">Į pradžią</a>
+      {% if is_staff %}<a class="btn btn-admin" href="{{ url_for('admin') }}">Admin panel</a>{% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
