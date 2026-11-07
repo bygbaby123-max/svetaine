@@ -61,6 +61,19 @@
       .catch(function () { setStatus("❌ Nepavyko įrašyti rezultato."); });
   }
 
+  /* --------------------------------------------------- žaidimo laikas
+     Užduočiai "žaisk X minučių": kas 30 sek. siunčiamas ping'as į
+     POST /games/ping, kol žaidimas paleistas ir lapas matomas. */
+  var playTimer = null;
+  function startPlayTimer() {
+    if (playTimer || !window.GAME_LOGGED_IN || !window.GAME_PING_URL) return;
+    playTimer = setInterval(function () {
+      if (document.hidden) return;
+      fetch(window.GAME_PING_URL, { method: "POST", credentials: "same-origin" })
+        .catch(function () {});
+    }, 30000);
+  }
+
   function launch(init) {
     if (stopCurrent) { try { stopCurrent(); } catch (e) {} }
     stopCurrent = null;
@@ -68,6 +81,7 @@
     setStatus("");
     setScore(0);
     stopCurrent = init() || null;
+    startPlayTimer();
   }
 
   /* ---------------------------------------------------------- 2048 */
